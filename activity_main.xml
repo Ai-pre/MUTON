@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Camera Preview -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/cameraPreview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- 서버 응답 표시 -->
+    <TextView
+        android:id="@+id/txtResult"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:background="#66000000"
+        android:padding="8dp"
+        android:text="서버 결과 대기중..."
+        android:layout_gravity="bottom" />
+
+    <!-- Stop 버튼 -->
+    <Button
+        android:id="@+id/btnStop"
+        android:layout_width="120dp"
+        android:layout_height="50dp"
+        android:layout_margin="20dp"
+        android:layout_gravity="top|end"
+        android:text="Stop"
+        android:background="#CC3333"
+        android:textColor="#FFFFFF" />
+
+</FrameLayout>
