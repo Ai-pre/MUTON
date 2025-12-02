@@ -1,5 +1,8 @@
 package com.example.myapplication
-
+import android.graphics.ImageFormat
+import android.graphics.Rect
+import android.graphics.YuvImage
+import java.io.ByteArrayOutputStream
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
@@ -34,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     // ---- Audio ----
     private var isAudioStreaming = false
     private var audioRecord: AudioRecord? = null
+    private var lastFrameSentTime = 0L
     private val sampleRate = 16000
     private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
     private val channelConfig = AudioFormat.CHANNEL_IN_MONO
@@ -143,10 +147,21 @@ class MainActivity : AppCompatActivity() {
                 .build()
 
             imageAnalyzer.setAnalyzer(cameraExecutor) { image ->
-                val jpegBytes = imageToBytes(image)
-                sendVideoFrame(jpegBytes)
+                val now = System.currentTimeMillis()
+
+                // 0.5초(500ms) 지난 경우에만 전송
+                if (now - lastFrameSentTime >= 500L) {
+                    val jpegBytes = imageToBytes(image)
+                    if (jpegBytes != null) {
+                        sendVideoFrame(jpegBytes)
+                        lastFrameSentTime = now
+                    }
+                }
+
+                // 무조건 호출해서 다음 프레임이 들어오게 해야 함
                 image.close()
             }
+
 
             // ★ 후면 카메라 고정
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
@@ -167,12 +182,70 @@ class MainActivity : AppCompatActivity() {
     }
 
     // 간단히 plane[0]만 보내는 버전 (Y 채널, 서버에서 처리 방식에 맞춰 나중에 손봐도 됨)
-    private fun imageToBytes(image: ImageProxy): ByteArray {
-        val buffer: ByteBuffer = image.planes[0].buffer
-        val bytes = ByteArray(buffer.remaining())
-        buffer.get(bytes)
-        return bytes
+    private fun imageToBytes(image: ImageProxy): ByteArray? {
+        return try {
+            if (image.format == ImageFormat.YUV_420_888) {
+                yuv420ToJpeg(image, 80)   // quality 80 정도로 압축
+            } else {
+                // 혹시 다른 포맷이면, 일단 plane[0]만 보내는 fallback
+                val buffer: ByteBuffer = image.planes[0].buffer
+                val bytes = ByteArray(buffer.remaining())
+                buffer.get(bytes)
+                bytes
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
+
+    // YUV_420_888 → NV21(ByteArray) 변환
+    private fun yuv420888ToNv21(image: ImageProxy): ByteArray {
+        val yPlane = image.planes[0]
+        val uPlane = image.planes[1]
+        val vPlane = image.planes[2]
+
+        val yBuffer = yPlane.buffer
+        val uBuffer = uPlane.buffer
+        val vBuffer = vPlane.buffer
+
+        val ySize = yBuffer.remaining()
+        val uSize = uBuffer.remaining()
+        val vSize = vBuffer.remaining()
+
+        // NV21: Y + VU
+        val nv21 = ByteArray(ySize + uSize + vSize)
+
+        // Y 채널
+        yBuffer.get(nv21, 0, ySize)
+
+        // V + U 채널 (단순히 뒤에 붙이는 방식 - 대부분 기기에서 동작)
+        vBuffer.get(nv21, ySize, vSize)
+        uBuffer.get(nv21, ySize + vSize, uSize)
+
+        return nv21
+    }
+
+    // NV21 → JPEG ByteArray
+    private fun yuv420ToJpeg(image: ImageProxy, quality: Int = 80): ByteArray {
+        val nv21 = yuv420888ToNv21(image)
+        val yuvImage = YuvImage(
+            nv21,
+            ImageFormat.NV21,
+            image.width,
+            image.height,
+            null
+        )
+
+        val out = ByteArrayOutputStream()
+        yuvImage.compressToJpeg(
+            Rect(0, 0, image.width, image.height),
+            quality,
+            out
+        )
+        return out.toByteArray()
+    }
+
 
     // =======================
     // 서버로 영상 chunk 전송
@@ -182,19 +255,19 @@ class MainActivity : AppCompatActivity() {
             .setType(MultipartBody.FORM)
             .addFormDataPart(
                 "frame",
-                "frame.y",
-                RequestBody.create("application/octet-stream".toMediaTypeOrNull(), bytes)
+                "frame.jpg",
+                RequestBody.create("image/jpeg".toMediaTypeOrNull(), bytes)
             )
             .build()
 
         val req = Request.Builder()
-            .url("$SERVER_BASE_URL/process_video_chunk")
+            .url("$SERVER_BASE_URL/process_video_chunk")  // 서버 쪽에서 upload_frame alias로 처리 중
             .post(body)
             .build()
 
         client.newCall(req).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
-                // 필요하면 여기서 응답 사용
+                // 필요하면 응답 사용
                 response.close()
             }
 
@@ -203,6 +276,7 @@ class MainActivity : AppCompatActivity() {
             }
         })
     }
+
 
     // =======================
     // 🔥 AudioRecord streaming

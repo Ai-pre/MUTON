@@ -6,7 +6,7 @@ import torch
 import torchaudio
 import soundfile as sf
 from transformers import (
-    AutoProcessor,
+    AutoFeatureExtractor,
     WavLMModel,
     WhisperProcessor,
     WhisperForConditionalGeneration,
@@ -41,7 +41,7 @@ class AudioEncoder:
         self.config = config or AudioConfig()
 
         # ---- WavLM 로드 ----
-        self.wavlm_processor = AutoProcessor.from_pretrained(self.config.wavlm_name)
+        self.wavlm_processor = AutoFeatureExtractor.from_pretrained(self.config.wavlm_name)
         self.wavlm_model = WavLMModel.from_pretrained(
             self.config.wavlm_name,
             output_hidden_states=True,
