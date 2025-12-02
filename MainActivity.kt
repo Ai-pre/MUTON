@@ -55,7 +55,7 @@ class MainActivity : AppCompatActivity() {
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.acti2)
+        setContentView(R.layout.activity_main)
 
         previewView = findViewById(R.id.cameraPreview)
         btnStop = findViewById(R.id.btnStop)
