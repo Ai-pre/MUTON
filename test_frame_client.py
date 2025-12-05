@@ -1,7 +1,8 @@
 import cv2
 import requests
 
-URL = "http://127.0.0.1:5000/upload_frame"  # 먼저 같은 PC에서 테스트
+URL = "https://genealogy-water-things-orientation.trycloudflare.com/upload_frame"
+
 
 cap = cv2.VideoCapture(0)  # 노트북 웹캠
 

@@ -49,7 +49,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val PERMISSION_REQUEST_CODE = 10
-        private const val SERVER_BASE_URL = "http://YOUR_SERVER_IP:5000" // ← 수정
+        private const val SERVER_BASE_URL = "https://genealogy-water-things-orientation.trycloudflare.com"
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -62,6 +62,10 @@ class MainActivity : AppCompatActivity() {
         txtResult = findViewById(R.id.txtResult)
 
         cameraExecutor = Executors.newSingleThreadExecutor()
+        btnStop.setOnClickListener {
+            stopAudioStreaming()
+            txtResult.text = "오디오 스트리밍 중지"
+        }
 
         // 권한 먼저 체크
         if (!hasPermissions()) {
