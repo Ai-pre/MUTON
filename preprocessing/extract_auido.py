@@ -3,9 +3,10 @@ import os
 from moviepy.editor import VideoFileClip
 import librosa
 import soundfile as sf
+from muton.config import env_path
 
-VIDEO_ROOT = "/home/jaesang02/MUTON_cpy/data/video"
-AUDIO_ROOT = "/home/jaesang02/MUTON_cpy/data/audio"
+VIDEO_ROOT = env_path("MUTON_VIDEO_ROOT", "data/video")
+AUDIO_ROOT = env_path("MUTON_AUDIO_ROOT", "data/audio")
 
 TARGET_SR = 16000  # Whisper / WavLM 공통
 
@@ -32,7 +33,7 @@ def extract_audio(mp4_path, wav_path):
         print(f"❌ Failed {mp4_path}: {e}")
 
 def main():
-    for root, dirs, files in os.walk(VIDEO_ROOT):
+    for root, dirs, files in os.walk(str(VIDEO_ROOT)):
         for file in files:
             if not file.endswith(".mp4"):
                 continue

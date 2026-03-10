@@ -4,11 +4,13 @@ import mediapipe as mp
 from pathlib import Path
 import math
 
+from muton.config import env_path
+
 # =========================
 # 설정 (경로 확인!)
 # =========================
-VIDEO_ROOT = Path("/home/jaesang/p_project/data/video")
-OUTPUT_ROOT = Path("/home/jaesang/p_project/data/frames")
+VIDEO_ROOT = env_path("MUTON_VIDEO_ROOT", "data/video")
+OUTPUT_ROOT = env_path("MUTON_FRAME_ROOT", "data/frames")
 
 TARGET_FPS = 5  # 초당 5프레임 검사
 PADDING_RATIO = 0.6

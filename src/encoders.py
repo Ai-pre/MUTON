@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import json
 import os
 import re
 import wave
@@ -42,7 +43,7 @@ class FaceEncoder:
     def __init__(self, config: FaceConfig = None):
         self.config = config or FaceConfig()
 
-        print("✅ Loading Face Mesh (MediaPipe)...")
+        print("Loading Face Mesh (MediaPipe)...")
         self.mp_face_mesh = mp.solutions.face_mesh
         self.face_mesh = self.mp_face_mesh.FaceMesh(
             static_image_mode=True,
@@ -51,7 +52,7 @@ class FaceEncoder:
             min_detection_confidence=0.5,
         )
 
-        print("✅ Loading Emotion Model (dima806/ViT)...")
+        print("Loading Emotion Model (dima806/ViT)...")
         model_id = "dima806/facial_emotions_image_detection"
         self.processor = AutoImageProcessor.from_pretrained(model_id, use_fast=True)
         self.model = AutoModelForImageClassification.from_pretrained(model_id).to(DEVICE).eval()
@@ -220,18 +221,18 @@ class AudioEncoder:
         self.device = device
         self.sample_rate = 16000
 
-        print("☁️ Connecting to OpenAI Whisper API...")
+        print("Connecting to OpenAI Whisper API...")
         api_key = os.environ.get("OPENAI_API_KEY", "").strip()
         if not api_key:
             # 서버/embedding에서 STT 안 쓰는 경우도 있으니 에러로 죽이지 않고 경고만
-            print("⚠️ OPENAI_API_KEY not set. STT will return None.")
+            print("OPENAI_API_KEY not set. STT will return None.")
             self.client = None
         else:
             self.client = OpenAI(api_key=api_key)
 
         self.audio_buffer = bytearray()
 
-        print("✅ Loading Silero VAD...")
+        print("Loading Silero VAD...")
         self.vad_model, _utils = torch.hub.load(
             repo_or_dir="snakers4/silero-vad",
             model="silero_vad",
@@ -254,7 +255,7 @@ class AudioEncoder:
         ]
         self.filler_words = ["음...", "음", "어...", "어", "그...", "그", "아...", "아", "저...", "저", "에...", "에"]
 
-        print("✅ Loading WavLM-base-plus...")
+        print("Loading WavLM-base-plus...")
         self.wavlm = WavLMModel.from_pretrained("microsoft/wavlm-base-plus").to(self.device).eval()
 
     def stt_with_api(self, raw_bytes: bytes) -> Optional[str]:
@@ -306,7 +307,7 @@ class AudioEncoder:
 
         MIN_DURATION_BYTES = 25000
         if len(self.audio_buffer) < MIN_DURATION_BYTES:
-            print(f"❌ 너무 짧아서 폐기 (Size: {len(self.audio_buffer)})")
+            print(f"Discarded because the chunk is too short (size={len(self.audio_buffer)})")
             self.audio_buffer = bytearray()
             self.silence_chunks = 0
             return None
@@ -314,7 +315,7 @@ class AudioEncoder:
         full_buffer_int16 = np.frombuffer(self.audio_buffer, dtype=np.int16)
         full_energy = np.sqrt(np.mean(full_buffer_int16.astype(np.float32) ** 2))
         if full_energy < 300:
-            print(f"❌ 전체 에너지가 낮아 폐기 (Energy: {int(full_energy)})")
+            print(f"Discarded because full energy is too low (energy={int(full_energy)})")
             self.audio_buffer = bytearray()
             self.silence_chunks = 0
             return None
@@ -364,11 +365,11 @@ class AudioEncoder:
             no_speech_prob = _get(seg0, "no_speech_prob", None)
 
             if avg_logprob is not None and avg_logprob < -1.0:
-                print(f"❌ 확신도 부족으로 폐기 ({avg_logprob:.2f}): {raw_text}")
+                print(f"Discarded because avg_logprob is too low ({avg_logprob:.2f}): {raw_text}")
                 return None
 
             if no_speech_prob is not None and no_speech_prob > 0.8:
-                print(f"❌ 말소리 아닐 확률 높음 ({no_speech_prob:.2f}): {raw_text}")
+                print(f"Discarded because no_speech_prob is too high ({no_speech_prob:.2f}): {raw_text}")
                 return None
 
             if not raw_text:
@@ -390,11 +391,11 @@ class AudioEncoder:
             if len(filtered_text) < 2 and not any(c.isalnum() for c in filtered_text):
                 return None
 
-            print(f"✅ API 인식: {filtered_text}")
+            print(f"API transcript: {filtered_text}")
             return filtered_text
 
         except Exception as e:
-            print(f"❌ OpenAI API Error: {e}")
+            print(f"OpenAI API Error: {e}")
             self.audio_buffer = bytearray()
             self.silence_chunks = 0
             return None
@@ -470,18 +471,21 @@ class TextEncoder:
         vec = (summed / denom).squeeze(0).detach().cpu().numpy().astype(np.float32)
         return vec  # (768,)
     
+    @staticmethod
     def load_translate_cache(path: str) -> dict:
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
         return {}
 
+    @staticmethod
     def save_translate_cache(path: str, cache: dict):
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(cache, f, ensure_ascii=False, indent=2)
         os.replace(tmp, path)
 
+    @staticmethod
     def get_korean_script(sample_id: str, utterance_en: str, cache: dict) -> str:
         # 1) 캐시에 있으면 그거 씀
         if sample_id in cache:

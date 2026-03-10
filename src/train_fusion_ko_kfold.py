@@ -82,7 +82,11 @@ def freeze_backbone(model: FusionTransformer, unfreeze_last_nlayers: int = 0):
     # encoder 일부 unfreeze 옵션
     if unfreeze_last_nlayers > 0:
         # TransformerEncoder는 .layers에 접근 가능
-        layers = model.encoder.layers
+        layers = getattr(model, "layers", None)
+        if layers is None and hasattr(model, "encoder"):
+            layers = model.encoder.layers
+        if layers is None:
+            raise AttributeError("FusionTransformer does not expose transformer layers.")
         n = len(layers)
         for li in range(max(0, n - unfreeze_last_nlayers), n):
             for p in layers[li].parameters():

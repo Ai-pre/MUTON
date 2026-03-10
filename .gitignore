@@ -1,4 +1,12 @@
-# ignore dataset
+.env
+.venv/
+.vscode/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+artifacts/
 data/
 
 # python
@@ -10,3 +18,4 @@ __pycache__/
 
 # logs
 *.log
+google-services.json

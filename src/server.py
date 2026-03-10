@@ -30,7 +30,8 @@ from transformers import AutoTokenizer, AutoModel    # KLUE RoBERTa 로딩
 # ---------------------------
 # 프로젝트 내부 모듈
 # ---------------------------
-from encoders import FaceEncoder, AudioEncoder, TextEncoder
+from muton.config import env_path
+from muton.encoders import FaceEncoder, AudioEncoder, TextEncoder
 
 # =====================================================
 # Global Face Cache
@@ -142,24 +143,58 @@ class FusionTransformer(nn.Module):
 # 2. Load Models
 # =====================================================
 
+
+def normalize_fusion_state_dict(state_dict):
+    """Map encoder-style checkpoints onto the current server model names."""
+    if "head_emo.weight" not in state_dict:
+        return state_dict
+    if not any(key.startswith("encoder.layers.") for key in state_dict):
+        return state_dict
+
+    remapped = {}
+    for key, value in state_dict.items():
+        new_key = key
+        if key.startswith("encoder.layers."):
+            parts = key.split(".")
+            layer_idx = parts[2]
+            suffix = ".".join(parts[3:])
+
+            if suffix.startswith("self_attn."):
+                new_key = f"layers.{layer_idx}.{suffix[len('self_attn.'):]}"
+            elif suffix.startswith("linear1."):
+                new_key = f"ffns.{layer_idx}.0.{suffix[len('linear1.'):]}"
+            elif suffix.startswith("linear2."):
+                new_key = f"ffns.{layer_idx}.3.{suffix[len('linear2.'):]}"
+            elif suffix.startswith("norm1."):
+                new_key = f"norms1.{layer_idx}.{suffix[len('norm1.'):]}"
+            elif suffix.startswith("norm2."):
+                new_key = f"norms2.{layer_idx}.{suffix[len('norm2.'):]}"
+
+        remapped[new_key] = value
+
+    return remapped
+
 # ---------------------------
 # Fusion 모델 가중치 경로
 # ---------------------------
-FUSION_MODEL_PATH = "out/fusion_ko_final/final.pt"
+FUSION_MODEL_PATH = env_path("MUTON_FUSION_MODEL", "out/fusion_ko_final/final.pt")
 
-pkg = torch.load(FUSION_MODEL_PATH, map_location="cpu")
-cfg = pkg.get("args", {})
+pkg = torch.load(str(FUSION_MODEL_PATH), map_location="cpu")
+cfg = pkg.get("backbone_cfg") or pkg.get("args", {})
+model_state = pkg["model"] if isinstance(pkg, dict) and "model" in pkg else pkg
+model_state = normalize_fusion_state_dict(model_state)
+num_emotions = model_state["head_emo.weight"].shape[0]
 
 fusion_model = FusionTransformer(
     d_model=cfg.get("d_model", 256),
     nhead=cfg.get("nhead", 8),
     nlayers=cfg.get("nlayers", 4),
-    num_emotions=7
+    num_emotions=num_emotions
 ).to(DEVICE)
 
-fusion_model.load_state_dict(pkg["model"], strict=True)
+fusion_model.load_state_dict(model_state, strict=True)
 fusion_model.eval()
-print("✅ Fusion model loaded")
+print("Fusion model loaded")
 
 
 # ---------------------------
@@ -180,22 +215,25 @@ face_encoder = FaceEncoder()                                   # 얼굴 인코�
 # ---------------------------
 # fusion output index → emotion label
 # ---------------------------
-idx2emotion = {
-    0: "Angry",
-    1: "Sad",
-    2: "Disgust",
-    3: "Surprise",
-    4: "Happy",
-    5: "Neutral",
-    6: "Fear",
-}
+if isinstance(pkg, dict) and pkg.get("ko_emo2id"):
+    idx2emotion = {idx: label.capitalize() for label, idx in pkg["ko_emo2id"].items()}
+else:
+    idx2emotion = {
+        0: "Angry",
+        1: "Sad",
+        2: "Disgust",
+        3: "Surprise",
+        4: "Happy",
+        5: "Neutral",
+        6: "Fear",
+    }
 
 
 # =====================================================
 # Few-shot Exemplar Load (Emotion-conditioned)
 # - GPT 요약 생성 시, 같은 감정 라벨의 예시 문장을 few-shot으로 넣어줌
 # =====================================================
-JSON_PATH = "/home/jaesang02/MUTON_cpy/preprocessing/multi_text.json"     # few-shot 예시 파일 경로
+JSON_PATH = env_path("MUTON_MULTI_TEXT_JSON", "preprocessing/multi_text.json")
 exemplar_dict = {}                                            # {Emotion(str): [summary(str), ...]}
 
 try:
@@ -221,11 +259,11 @@ try:
                 exemplar_dict.setdefault(raw_emotion, []).append(summary.strip())
 
     # 로드 결과 로그 (각 감정별 개수)
-    print(f"✅ Few-shot exemplar loaded: { {k: len(v) for k,v in exemplar_dict.items()} }")
+    print(f"Few-shot exemplar loaded: { {k: len(v) for k,v in exemplar_dict.items()} }")
 
 except Exception as e:
     # JSON 로드 실패 시 (경로 오류/형식 오류 등) → 빈 dict로 진행
-    print("❌ Failed to load exemplar_dict:", e)
+    print("Failed to load exemplar_dict:", e)
     exemplar_dict = {}
 
 

@@ -24,7 +24,7 @@ import torch
 import cv2
 
 # src/encoders.py
-from encoders import FaceEncoder, AudioEncoder, TextEncoder
+from muton.encoders import FaceEncoder, AudioEncoder, TextEncoder
 from openai import OpenAI
 
 def sentiment_to_valence(s: str) -> float:
