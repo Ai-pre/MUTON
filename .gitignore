@@ -1,9 +1,12 @@
-.env
-.vscode/
-__pycache__/
+# ignore dataset
 data/
-out/
-*.pt
-*.pth
+
+# python
+__pycache__/
+*.pyc
+
+# vscode
+.vscode/
+
+# logs
 *.log
-google-services.json
