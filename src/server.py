@@ -145,7 +145,7 @@ class FusionTransformer(nn.Module):
 # ---------------------------
 # Fusion 모델 가중치 경로
 # ---------------------------
-FUSION_MODEL_PATH = "out/fusion_meld_pretrain_attn/best.pt"
+FUSION_MODEL_PATH = "out/fusion_ko_final/final.pt"
 
 pkg = torch.load(FUSION_MODEL_PATH, map_location="cpu")
 cfg = pkg.get("args", {})
