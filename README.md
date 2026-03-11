@@ -101,6 +101,25 @@ py -3 src/train_fusion_ko_final.py --pre_ckpt out/fusion_meld_pretrain_attn/best
 py -3 scripts/run_server.py
 ```
 
+## Remote URL Workflow For Android
+
+If you cannot keep a fixed public server address and must use a temporary tunnel URL, keep the app pointed at this GitHub raw file instead of hardcoding the tunnel directly:
+
+```text
+https://raw.githubusercontent.com/Ai-pre/MUTON_cpy/server/backend_url.json
+```
+
+Update the JSON whenever the tunnel URL changes:
+
+```bash
+python scripts/update_backend_url.py https://xxxxx.trycloudflare.com
+git add backend_url.json
+git commit -m "Update backend URL"
+git push origin server
+```
+
+The Android app should fetch `backend_url.json`, read the `base_url` field, and use that value as its backend base URL.
+
 ## Notes
 
 - This is research code, not a fully packaged production service.
