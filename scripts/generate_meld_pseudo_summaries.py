@@ -125,7 +125,8 @@ def save_frame_to_cache(
     frame_cache_dir.mkdir(parents=True, exist_ok=True)
     frame_path = frame_cache_dir / f"{sample_id}_f{frame_index}.jpg"
     image.save(frame_path, format="JPEG", quality=jpeg_quality)
-    return frame_path.resolve().as_uri()
+    # vLLM local media mode expects a filesystem path string in image_url.url.
+    return str(frame_path.resolve())
 
 
 def load_style_examples(style_examples_pt: str, limit: int) -> list[str]:
