@@ -101,6 +101,13 @@ py -3 src/train_fusion_ko_final.py --pre_ckpt out/fusion_meld_pretrain_attn/best
 
 This path uses the multimodal fusion hidden states directly as encoder memory for a seq2seq decoder, instead of prompting GPT from the predicted class/arousal/valence outputs.
 
+Optional: first replace MELD's translated utterance targets with pseudo summaries generated from representative video frames plus the translated script.
+
+```bash
+py -3 scripts/generate_meld_pseudo_summaries.py --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --output_pt out/meld_train_pseudo.pt --model your-multimodal-model --base_url http://your-openai-compatible-endpoint/v1
+py -3 scripts/generate_meld_pseudo_summaries.py --input_pt out/meld_dev.pt --videos_root data/MELD/MELD.Raw/dev_splits_complete --output_pt out/meld_dev_pseudo.pt --model your-multimodal-model --base_url http://your-openai-compatible-endpoint/v1
+```
+
 Stage A: align the decoder on the larger MELD split.
 
 ```bash
@@ -117,6 +124,12 @@ You can also run both stages in one shot:
 
 ```bash
 py -3 scripts/train_fusion_seq2seq_two_stage.py
+```
+
+If you generated pseudo summaries, point stage A at the pseudo datasets instead:
+
+```bash
+py -3 scripts/train_fusion_seq2seq_two_stage.py --stage_a_train_pt out/meld_train_pseudo.pt --stage_a_val_pt out/meld_dev_pseudo.pt
 ```
 
 Notes:
