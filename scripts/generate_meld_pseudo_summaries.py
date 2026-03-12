@@ -29,6 +29,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", type=str, required=True, help="OpenAI-compatible multimodal model name")
     parser.add_argument("--base_url", type=str, default="", help="Optional OpenAI-compatible base URL")
     parser.add_argument("--api_key", type=str, default="", help="Optional API key override")
+    parser.add_argument("--text_only", action="store_true", help="Ignore video frames and generate summaries from translated script only")
     parser.add_argument("--num_frames", type=int, default=1, choices=[1, 3])
     parser.add_argument("--media_mode", type=str, default="base64", choices=["base64", "file"])
     parser.add_argument("--frame_cache_dir", type=str, default="out/meld_pseudo_frames")
@@ -288,12 +289,12 @@ def main() -> None:
             output.append(sample)
             continue
 
-        video_path = parse_meld_video_path(videos_root, sample_id)
         frames = []
-        if video_path.exists():
+        video_path = parse_meld_video_path(videos_root, sample_id)
+        if not args.text_only and video_path.exists():
             frames = extract_frames(video_path, args.num_frames)
 
-        if not frames and not args.allow_text_only:
+        if not args.text_only and not frames and not args.allow_text_only:
             print(f"[skip] no frames: {sample_id} -> {video_path}")
             output.append(sample)
             continue

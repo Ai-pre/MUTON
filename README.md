@@ -134,6 +134,12 @@ If you generated pseudo summaries, point stage A at the pseudo datasets instead:
 py -3 scripts/train_fusion_seq2seq_two_stage.py --stage_a_train_pt out/meld_train_pseudo.pt --stage_a_val_pt out/meld_dev_pseudo.pt
 ```
 
+If the local multimodal serving path is unstable, you can still synthesize stage-A targets from the translated MELD script alone:
+
+```bash
+py -3 scripts/generate_meld_pseudo_summaries.py --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --output_pt out/meld_train_pseudo.pt --model your-text-model --base_url http://your-openai-compatible-endpoint/v1 --text_only --allow_text_only
+```
+
 Notes:
 
 - `fusion_dataset.pt` and the MELD `.pt` files must include `target_text` entries. `src/Embedding.py` already writes that field when the source JSON contains summary text.
