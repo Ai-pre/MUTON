@@ -9,6 +9,7 @@ This repository combines face, audio, and text signals to estimate emotion, arou
 - `src/encoders.py`: face, audio, and text encoder implementations
 - `src/train_fusion_meld.py`: MELD pretraining for the fusion model
 - `src/train_fusion_ko_final.py`: Korean fine-tuning on the fused dataset
+- `src/train_fusion_seq2seq.py`: experimental fusion encoder + text decoder training
 - `src/train_fusion_ko_kfold.py`: K-fold evaluation for the Korean dataset
 - `src/eval_ko_loocv.py`: leave-one-out evaluation
 - `src/Embedding.py`: build `fusion_dataset.pt` from prepared assets
@@ -36,6 +37,7 @@ MUTON_cpy/
     server.py
     train_fusion_meld.py
     train_fusion_ko_final.py
+    train_fusion_seq2seq.py
     train_fusion_ko_kfold.py
     eval_ko_loocv.py
 ```
@@ -95,7 +97,34 @@ py -3 scripts/build_fusion_dataset.py
 py -3 src/train_fusion_ko_final.py --pre_ckpt out/fusion_meld_pretrain_attn/best.pt --ko_pt data/fusion_dataset.pt
 ```
 
-### 5. Run the FastAPI server
+### 5. Train the experimental fusion-to-text decoder
+
+This path uses the multimodal fusion hidden states directly as encoder memory for a seq2seq decoder, instead of prompting GPT from the predicted class/arousal/valence outputs.
+
+Stage A: align the decoder on the larger MELD split.
+
+```bash
+py -3 scripts/train_fusion_seq2seq.py --pre_ckpt out/fusion_ko_final/final.pt --train_pt out/meld_train.pt --val_pt out/meld_dev.pt --emotion_space meld --decoder_model google/mt5-small --out_pt out/fusion_seq2seq/meld_best.pt
+```
+
+Stage B: fine-tune on the small Korean fused dataset.
+
+```bash
+py -3 scripts/train_fusion_seq2seq.py --pre_ckpt out/fusion_seq2seq/meld_best.pt --train_pt out/fusion_dataset.pt --emotion_space ko --decoder_model google/mt5-small --freeze_fusion_backbone --unfreeze_last_nlayers 1 --out_pt out/fusion_seq2seq/ko_best.pt
+```
+
+You can also run both stages in one shot:
+
+```bash
+py -3 scripts/train_fusion_seq2seq_two_stage.py
+```
+
+Notes:
+
+- `fusion_dataset.pt` and the MELD `.pt` files must include `target_text` entries. `src/Embedding.py` already writes that field when the source JSON contains summary text.
+- This is an experimental training path for research iteration. It does not replace the current FastAPI inference server yet.
+
+### 6. Run the FastAPI server
 
 ```bash
 py -3 scripts/run_server.py

@@ -27,6 +27,7 @@ torch==2.1.2
 torchaudio==2.1.2
 transformers==4.36.2
 accelerate==0.26.1
+sentencepiece==0.1.99
 
 # ===== LLM =====
 openai==1.6.1
