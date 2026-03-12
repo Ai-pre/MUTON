@@ -30,6 +30,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--base_url", type=str, default="", help="Optional OpenAI-compatible base URL")
     parser.add_argument("--api_key", type=str, default="", help="Optional API key override")
     parser.add_argument("--num_frames", type=int, default=1, choices=[1, 3])
+    parser.add_argument("--media_mode", type=str, default="base64", choices=["base64", "file"])
+    parser.add_argument("--frame_cache_dir", type=str, default="out/meld_pseudo_frames")
     parser.add_argument("--max_side", type=int, default=768)
     parser.add_argument("--jpeg_quality", type=int, default=85)
     parser.add_argument("--temperature", type=float, default=0.2)
@@ -113,6 +115,19 @@ def image_to_data_url(image: Image.Image, jpeg_quality: int) -> str:
     return f"data:image/jpeg;base64,{encoded}"
 
 
+def save_frame_to_cache(
+    image: Image.Image,
+    frame_cache_dir: Path,
+    sample_id: str,
+    frame_index: int,
+    jpeg_quality: int,
+) -> str:
+    frame_cache_dir.mkdir(parents=True, exist_ok=True)
+    frame_path = frame_cache_dir / f"{sample_id}_f{frame_index}.jpg"
+    image.save(frame_path, format="JPEG", quality=jpeg_quality)
+    return frame_path.resolve().as_uri()
+
+
 def load_style_examples(style_examples_pt: str, limit: int) -> list[str]:
     path = Path(style_examples_pt)
     if not path.exists():
@@ -170,17 +185,30 @@ def build_prompts(style_examples: Iterable[str], transcript: str, emotion: str |
 def build_multimodal_content(
     user_prompt: str,
     frames: list[Image.Image],
+    sample_id: str,
+    media_mode: str,
+    frame_cache_dir: Path,
     max_side: int,
     jpeg_quality: int,
 ) -> list[dict]:
     content = [{"type": "text", "text": user_prompt}]
-    for frame in frames:
+    for index, frame in enumerate(frames):
         resized = resize_image(frame, max_side=max_side)
+        if media_mode == "file":
+            image_url = save_frame_to_cache(
+                resized,
+                frame_cache_dir=frame_cache_dir,
+                sample_id=sample_id,
+                frame_index=index,
+                jpeg_quality=jpeg_quality,
+            )
+        else:
+            image_url = image_to_data_url(resized, jpeg_quality=jpeg_quality)
         content.append(
             {
                 "type": "image_url",
                 "image_url": {
-                    "url": image_to_data_url(resized, jpeg_quality=jpeg_quality),
+                    "url": image_url,
                 },
             }
         )
@@ -193,6 +221,9 @@ def request_summary(
     system_prompt: str,
     user_prompt: str,
     frames: list[Image.Image],
+    sample_id: str,
+    media_mode: str,
+    frame_cache_dir: Path,
     max_side: int,
     jpeg_quality: int,
     temperature: float,
@@ -201,6 +232,9 @@ def request_summary(
     content = build_multimodal_content(
         user_prompt=user_prompt,
         frames=frames,
+        sample_id=sample_id,
+        media_mode=media_mode,
+        frame_cache_dir=frame_cache_dir,
         max_side=max_side,
         jpeg_quality=jpeg_quality,
     )
@@ -223,6 +257,7 @@ def main() -> None:
     videos_root = Path(args.videos_root)
     output_path = Path(args.output_pt)
     cache_path = args.cache_json or str(output_path.with_suffix(".cache.json"))
+    frame_cache_dir = Path(args.frame_cache_dir)
 
     dataset = torch.load(input_path, map_location="cpu")
     style_examples = load_style_examples(args.style_examples_pt, args.style_examples)
@@ -271,6 +306,9 @@ def main() -> None:
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 frames=frames,
+                sample_id=sample_id,
+                media_mode=args.media_mode,
+                frame_cache_dir=frame_cache_dir,
                 max_side=args.max_side,
                 jpeg_quality=args.jpeg_quality,
                 temperature=args.temperature,

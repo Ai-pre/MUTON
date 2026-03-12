@@ -104,9 +104,11 @@ This path uses the multimodal fusion hidden states directly as encoder memory fo
 Optional: first replace MELD's translated utterance targets with pseudo summaries generated from representative video frames plus the translated script.
 
 ```bash
-py -3 scripts/generate_meld_pseudo_summaries.py --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --output_pt out/meld_train_pseudo.pt --model your-multimodal-model --base_url http://your-openai-compatible-endpoint/v1
-py -3 scripts/generate_meld_pseudo_summaries.py --input_pt out/meld_dev.pt --videos_root data/MELD/MELD.Raw/dev_splits_complete --output_pt out/meld_dev_pseudo.pt --model your-multimodal-model --base_url http://your-openai-compatible-endpoint/v1
+py -3 scripts/generate_meld_pseudo_summaries.py --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --output_pt out/meld_train_pseudo.pt --model your-multimodal-model --base_url http://your-openai-compatible-endpoint/v1 --media_mode file
+py -3 scripts/generate_meld_pseudo_summaries.py --input_pt out/meld_dev.pt --videos_root data/MELD/MELD.Raw/dev_splits_complete --output_pt out/meld_dev_pseudo.pt --model your-multimodal-model --base_url http://your-openai-compatible-endpoint/v1 --media_mode file
 ```
+
+If you serve a local multimodal vLLM endpoint and use `--media_mode file`, start the server with `--allowed-local-media-path` pointing at the generated frame cache directory, for example `out/meld_pseudo_frames`.
 
 Stage A: align the decoder on the larger MELD split.
 
