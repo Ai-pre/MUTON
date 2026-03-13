@@ -162,6 +162,12 @@ If you also pass the original MELD CSV, the script will align frame extraction t
 py -3 scripts/generate_meld_pseudo_summaries.py --backend transformers --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --meld_csv data/MELD/MELD.Raw/train_sent_emo.csv --output_pt out/meld_train_pseudo_mm.pt --model Qwen/Qwen3.5-9B --num_frames 1 --device_map auto --torch_dtype float16 --trust_remote_code
 ```
 
+To better match the original MELD fusion preprocessing, add `--face_crop` so the script reuses the same FaceEncoder face-mesh alignment and padded face crop logic before generation:
+
+```bash
+py -3 scripts/generate_meld_pseudo_summaries.py --backend transformers --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --meld_csv data/MELD/MELD.Raw/train_sent_emo.csv --output_pt out/meld_train_pseudo_mm.pt --model Qwen/Qwen3.5-9B --num_frames 1 --face_crop --device_map auto --torch_dtype float16 --trust_remote_code
+```
+
 Notes:
 
 - `fusion_dataset.pt` and the MELD `.pt` files must include `target_text` entries. `src/Embedding.py` already writes that field when the source JSON contains summary text.

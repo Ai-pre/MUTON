@@ -32,6 +32,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--base_url", type=str, default="", help="Optional OpenAI-compatible base URL")
     parser.add_argument("--api_key", type=str, default="", help="Optional API key override")
     parser.add_argument("--text_only", action="store_true", help="Ignore video frames and generate summaries from translated script only")
+    parser.add_argument(
+        "--face_crop",
+        action="store_true",
+        help="Reuse FaceEncoder face-mesh alignment/crop logic before sending frames to the model.",
+    )
     parser.add_argument("--num_frames", type=int, default=1, choices=[1, 3])
     parser.add_argument("--media_mode", type=str, default="base64", choices=["base64", "file"])
     parser.add_argument("--frame_cache_dir", type=str, default="out/meld_pseudo_frames")
@@ -187,6 +192,58 @@ def resize_image(image: Image.Image, max_side: int) -> Image.Image:
         return image
     new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
     return image.resize(new_size, Image.Resampling.LANCZOS)
+
+
+def crop_face_with_encoder(face_encoder, frame_bgr: np.ndarray) -> Image.Image | None:
+    try:
+        img_h, img_w = frame_bgr.shape[:2]
+        img_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        results = face_encoder.face_mesh.process(img_rgb)
+        if not results.multi_face_landmarks:
+            return None
+
+        landmarks = results.multi_face_landmarks[0].landmark
+        aligned = face_encoder.align_face(frame_bgr, landmarks)
+
+        x_list = [l.x for l in landmarks]
+        y_list = [l.y for l in landmarks]
+        x_min, x_max = min(x_list), max(x_list)
+        y_min, y_max = min(y_list), max(y_list)
+
+        cx = int((x_min + x_max) / 2 * img_w)
+        cy = int((y_min + y_max) / 2 * img_h)
+        w = int((x_max - x_min) * img_w)
+        h = int((y_max - y_min) * img_h)
+        padding = max(w, h) * 0.6
+
+        x1 = max(0, int(cx - w / 2 - padding))
+        y1 = max(0, int(cy - h / 2 - padding))
+        x2 = min(img_w, int(cx + w / 2 + padding))
+        y2 = min(img_h, int(cy + h / 2 + padding))
+
+        face_bgr = aligned[y1:y2, x1:x2]
+        if face_bgr is None or face_bgr.size == 0:
+            return None
+        if face_bgr.shape[0] < 10 or face_bgr.shape[1] < 10:
+            return None
+
+        face_rgb = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2RGB)
+        return Image.fromarray(face_rgb)
+    except Exception:
+        return None
+
+
+def maybe_crop_frames(face_encoder, frames: list[Image.Image]) -> list[Image.Image]:
+    if face_encoder is None:
+        return frames
+
+    cropped_frames: list[Image.Image] = []
+    for frame in frames:
+        frame_bgr = cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR)
+        cropped = crop_face_with_encoder(face_encoder, frame_bgr)
+        if cropped is not None:
+            cropped_frames.append(cropped)
+    return cropped_frames
 
 
 def image_to_data_url(image: Image.Image, jpeg_quality: int) -> str:
@@ -597,6 +654,7 @@ def main() -> None:
 
     client = None
     local_backend = None
+    face_encoder = None
     if args.backend == "openai":
         from openai import OpenAI
 
@@ -620,6 +678,10 @@ def main() -> None:
                 torch_dtype=args.torch_dtype,
                 trust_remote_code=args.trust_remote_code,
             )
+    if args.face_crop and not args.text_only:
+        from muton.encoders import FaceEncoder
+
+        face_encoder = FaceEncoder()
 
     cache = load_cache(cache_path)
     output = []
@@ -663,6 +725,13 @@ def main() -> None:
             output.append(sample)
             continue
 
+        if not args.text_only and args.face_crop:
+            frames = maybe_crop_frames(face_encoder, frames)
+            if not frames and not args.allow_text_only:
+                print(f"[skip] face crop fail: {sample_id} -> {video_path}")
+                output.append(sample)
+                continue
+
         emotion = str(sample.get("emotion", "")).strip() if args.use_emotion_label else None
         system_prompt, user_prompt = build_prompts(style_examples, transcript, emotion)
         try:
@@ -704,6 +773,7 @@ def main() -> None:
         sample["pseudo_target_text"] = pseudo
         sample["pseudo_summary_model"] = args.model
         sample["pseudo_summary_has_image"] = bool(frames)
+        sample["pseudo_summary_face_crop"] = bool(args.face_crop and frames)
         output.append(sample)
 
         processed += 1
