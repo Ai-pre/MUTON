@@ -38,6 +38,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--max_tokens", type=int, default=120)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument(
+        "--enable_thinking",
+        action="store_true",
+        help="Keep model-specific reasoning/thinking mode enabled when supported.",
+    )
     parser.add_argument("--allow_text_only", action="store_true")
     parser.add_argument("--use_emotion_label", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
@@ -230,6 +235,7 @@ def request_summary(
     jpeg_quality: int,
     temperature: float,
     max_tokens: int,
+    enable_thinking: bool,
 ) -> str:
     content = build_multimodal_content(
         user_prompt=user_prompt,
@@ -240,16 +246,35 @@ def request_summary(
         max_side=max_side,
         jpeg_quality=jpeg_quality,
     )
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
+    request_kwargs = {
+        "model": model,
+        "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": content},
         ],
-        temperature=temperature,
-        max_tokens=max_tokens,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if not enable_thinking:
+        # Qwen 3.x can spend the whole completion budget on reasoning and leave
+        # the visible assistant content empty unless thinking is disabled.
+        request_kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
+
+    response = client.chat.completions.create(
+        **request_kwargs,
     )
-    return response.choices[0].message.content.strip()
+    message = response.choices[0].message
+    text = (message.content or "").strip()
+    if text:
+        return text
+
+    reasoning = getattr(message, "reasoning", "")
+    if reasoning:
+        raise RuntimeError(
+            "Model returned only reasoning text with empty content. "
+            "Retry with thinking disabled or keep --enable_thinking off."
+        )
+    raise RuntimeError("Model returned an empty response.")
 
 
 def main() -> None:
@@ -315,6 +340,7 @@ def main() -> None:
                 jpeg_quality=args.jpeg_quality,
                 temperature=args.temperature,
                 max_tokens=args.max_tokens,
+                enable_thinking=args.enable_thinking,
             )
         except Exception as error:
             print(f"[error] {sample_id}: {error}")

@@ -140,6 +140,8 @@ If the local multimodal serving path is unstable, you can still synthesize stage
 py -3 scripts/generate_meld_pseudo_summaries.py --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --output_pt out/meld_train_pseudo.pt --model your-text-model --base_url http://your-openai-compatible-endpoint/v1 --text_only --allow_text_only
 ```
 
+For Qwen 3.x endpoints, the script disables model-side thinking by default so the response budget is spent on the visible summary text instead of hidden reasoning. Pass `--enable_thinking` only if you explicitly want reasoning mode.
+
 Notes:
 
 - `fusion_dataset.pt` and the MELD `.pt` files must include `target_text` entries. `src/Embedding.py` already writes that field when the source JSON contains summary text.
