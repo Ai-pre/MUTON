@@ -37,6 +37,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Reuse FaceEncoder face-mesh alignment/crop logic before sending frames to the model.",
     )
+    parser.add_argument(
+        "--debug_face_dir",
+        type=str,
+        default="",
+        help="Optional directory to save original and cropped face images for inspection.",
+    )
     parser.add_argument("--num_frames", type=int, default=1, choices=[1, 3])
     parser.add_argument("--media_mode", type=str, default="base64", choices=["base64", "file"])
     parser.add_argument("--frame_cache_dir", type=str, default="out/meld_pseudo_frames")
@@ -244,6 +250,28 @@ def maybe_crop_frames(face_encoder, frames: list[Image.Image]) -> list[Image.Ima
         if cropped is not None:
             cropped_frames.append(cropped)
     return cropped_frames
+
+
+def save_debug_face_images(
+    debug_face_dir: Path | None,
+    sample_id: str,
+    frames: list[Image.Image],
+    cropped_frames: list[Image.Image],
+) -> None:
+    if debug_face_dir is None:
+        return
+
+    debug_face_dir.mkdir(parents=True, exist_ok=True)
+    for index, frame in enumerate(frames):
+        frame.save(debug_face_dir / f"{sample_id}_f{index}_orig.jpg", format="JPEG", quality=95)
+
+    if not cropped_frames:
+        marker = debug_face_dir / f"{sample_id}_crop_fail.txt"
+        marker.write_text("face crop failed", encoding="utf-8")
+        return
+
+    for index, cropped in enumerate(cropped_frames):
+        cropped.save(debug_face_dir / f"{sample_id}_f{index}_crop.jpg", format="JPEG", quality=95)
 
 
 def image_to_data_url(image: Image.Image, jpeg_quality: int) -> str:
@@ -647,6 +675,7 @@ def main() -> None:
     output_path = Path(args.output_pt)
     cache_path = args.cache_json or str(output_path.with_suffix(".cache.json"))
     frame_cache_dir = Path(args.frame_cache_dir)
+    debug_face_dir = Path(args.debug_face_dir) if args.debug_face_dir else None
     meld_time_ranges = load_meld_time_ranges(args.meld_csv)
 
     dataset = torch.load(input_path, map_location="cpu")
@@ -726,7 +755,9 @@ def main() -> None:
             continue
 
         if not args.text_only and args.face_crop:
+            original_frames = frames
             frames = maybe_crop_frames(face_encoder, frames)
+            save_debug_face_images(debug_face_dir, sample_id, original_frames, frames)
             if not frames and not args.allow_text_only:
                 print(f"[skip] face crop fail: {sample_id} -> {video_path}")
                 output.append(sample)
