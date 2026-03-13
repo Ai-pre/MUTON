@@ -624,6 +624,7 @@ def main() -> None:
     cache = load_cache(cache_path)
     output = []
     processed = 0
+    attempted = 0
 
     for item in dataset:
         sample = dict(item)
@@ -632,6 +633,10 @@ def main() -> None:
         if not sample_id or not transcript:
             output.append(sample)
             continue
+
+        attempted += 1
+        if args.limit and attempted > args.limit:
+            break
 
         if not args.overwrite and sample_id in cache:
             sample["original_target_text"] = sample.get("target_text", "")
@@ -642,7 +647,11 @@ def main() -> None:
 
         frames = []
         video_path = parse_meld_video_path(videos_root, sample_id)
-        if not args.text_only and video_path.exists():
+        if not args.text_only:
+            if not video_path.exists():
+                print(f"[skip] missing video: {sample_id} -> {video_path}")
+                output.append(sample)
+                continue
             if sample_id in meld_time_ranges:
                 start_t, end_t = meld_time_ranges[sample_id]
                 frames = extract_frames_at_times(video_path, choose_timepoints(start_t, end_t, args.num_frames))
@@ -650,7 +659,7 @@ def main() -> None:
                 frames = extract_frames(video_path, args.num_frames)
 
         if not args.text_only and not frames and not args.allow_text_only:
-            print(f"[skip] no frames: {sample_id} -> {video_path}")
+            print(f"[skip] frame read fail: {sample_id} -> {video_path}")
             output.append(sample)
             continue
 
@@ -702,14 +711,12 @@ def main() -> None:
             print(f"[ok] generated {processed} summaries")
             save_cache(cache_path, cache)
 
-        if args.limit and processed >= args.limit:
-            break
-
     save_cache(cache_path, cache)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(output, output_path)
     print(f"saved: {output_path}")
     print(f"generated: {processed}")
+    print(f"attempted: {attempted}")
 
 
 if __name__ == "__main__":
