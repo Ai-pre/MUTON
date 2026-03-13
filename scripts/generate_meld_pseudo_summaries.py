@@ -175,6 +175,13 @@ def extract_frames_at_times(video_path: Path, timestamps: list[float]) -> list[I
         frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         frames.append(Image.fromarray(frame_rgb))
 
+    if not frames:
+        capture.set(cv2.CAP_PROP_POS_MSEC, 0.0)
+        ok, frame_bgr = capture.read()
+        if ok and frame_bgr is not None:
+            frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+            frames.append(Image.fromarray(frame_rgb))
+
     capture.release()
     return frames
 
