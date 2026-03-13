@@ -150,6 +150,12 @@ py -3 scripts/generate_meld_pseudo_summaries.py --backend transformers --input_p
 
 For Qwen 3.5 local loading, use a recent `transformers` build as recommended by the official model card.
 
+The local `transformers` backend can also use representative frames instead of `--text_only` when your environment can load the multimodal Qwen model:
+
+```bash
+py -3 scripts/generate_meld_pseudo_summaries.py --backend transformers --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --output_pt out/meld_train_pseudo_mm.pt --model Qwen/Qwen3.5-9B --num_frames 1 --device_map auto --torch_dtype float16 --trust_remote_code
+```
+
 Notes:
 
 - `fusion_dataset.pt` and the MELD `.pt` files must include `target_text` entries. `src/Embedding.py` already writes that field when the source JSON contains summary text.

@@ -9,7 +9,6 @@ from typing import Iterable
 
 import cv2
 import torch
-from openai import OpenAI
 from PIL import Image
 
 
@@ -323,6 +322,36 @@ def load_transformers_text_backend(model_id: str, device_map: str, torch_dtype: 
     return {"tokenizer": tokenizer, "model": model}
 
 
+def load_transformers_multimodal_backend(model_id: str, device_map: str, torch_dtype: str, trust_remote_code: bool) -> dict:
+    try:
+        from transformers import AutoProcessor, Qwen3_5ForConditionalGeneration
+    except Exception as error:
+        raise RuntimeError(
+            "Transformers multimodal backend requires a recent Hugging Face transformers install "
+            "with Qwen3.5 multimodal support."
+        ) from error
+
+    model_kwargs = {
+        "trust_remote_code": trust_remote_code,
+    }
+    resolved_dtype = resolve_torch_dtype(torch_dtype)
+    if resolved_dtype != "auto":
+        model_kwargs["torch_dtype"] = resolved_dtype
+    if device_map:
+        model_kwargs["device_map"] = device_map
+
+    try:
+        processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=trust_remote_code)
+        model = Qwen3_5ForConditionalGeneration.from_pretrained(model_id, **model_kwargs)
+    except Exception as error:
+        raise RuntimeError(
+            "Failed to load the local transformers multimodal backend. "
+            "For Qwen3.5, use a recent transformers build as recommended by the official model card."
+        ) from error
+
+    return {"processor": processor, "model": model}
+
+
 def build_tokenizer_chat_inputs(tokenizer, messages: list[dict], enable_thinking: bool) -> dict:
     apply_kwargs = {
         "add_generation_prompt": True,
@@ -366,31 +395,104 @@ def strip_reasoning_markup(text: str) -> str:
     return text
 
 
+def infer_model_device(model) -> torch.device:
+    model_device = getattr(model, "device", None)
+    if model_device is not None:
+        return model_device
+
+    hf_device_map = getattr(model, "hf_device_map", None) or {}
+    for device_name in hf_device_map.values():
+        if isinstance(device_name, str) and device_name not in {"cpu", "disk"}:
+            return torch.device(device_name)
+    return torch.device("cpu")
+
+
 def request_summary_transformers(
     backend: dict,
     system_prompt: str,
     user_prompt: str,
+    frames: list[Image.Image],
+    max_side: int,
     temperature: float,
     max_tokens: int,
     enable_thinking: bool,
 ) -> str:
-    tokenizer = backend["tokenizer"]
     model = backend["model"]
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ]
-    model_inputs = build_tokenizer_chat_inputs(tokenizer, messages, enable_thinking=enable_thinking)
-    model_device = getattr(model, "device", torch.device("cpu"))
-    model_inputs = {
-        key: value.to(model_device) if hasattr(value, "to") else value
-        for key, value in model_inputs.items()
-    }
+
+    if "processor" in backend:
+        processor = backend["processor"]
+        user_content: list[dict] = []
+        for frame in frames:
+            user_content.append(
+                {
+                    "type": "image",
+                    # Inference from the multimodal chat template docs: decoded image
+                    # objects can be passed directly, analogous to decoded video objects.
+                    "image": resize_image(frame, max_side=max_side),
+                }
+            )
+        user_content.append({"type": "text", "text": user_prompt})
+        messages = [
+            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+            {"role": "user", "content": user_content},
+        ]
+
+        apply_kwargs = {
+            "add_generation_prompt": True,
+            "tokenize": True,
+            "return_dict": True,
+            "return_tensors": "pt",
+        }
+        if not enable_thinking:
+            apply_kwargs["enable_thinking"] = False
+        try:
+            model_inputs = processor.apply_chat_template(messages, **apply_kwargs)
+        except TypeError:
+            if "enable_thinking" in apply_kwargs:
+                apply_kwargs["chat_template_kwargs"] = {"enable_thinking": False}
+                apply_kwargs.pop("enable_thinking", None)
+            model_inputs = processor.apply_chat_template(messages, **apply_kwargs)
+
+        tokenizer = getattr(processor, "tokenizer", None)
+        model_device = infer_model_device(model)
+        if hasattr(model_inputs, "to"):
+            model_inputs = model_inputs.to(model_device)
+        else:
+            model_inputs = {
+                key: value.to(model_device) if hasattr(value, "to") else value
+                for key, value in model_inputs.items()
+            }
+        pad_token_id = getattr(tokenizer, "pad_token_id", None)
+        eos_token_id = getattr(tokenizer, "eos_token_id", None)
+        decode_fn = lambda ids: processor.batch_decode(  # noqa: E731
+            ids,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=False,
+        )[0].strip()
+    else:
+        tokenizer = backend["tokenizer"]
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        model_inputs = build_tokenizer_chat_inputs(tokenizer, messages, enable_thinking=enable_thinking)
+        model_device = infer_model_device(model)
+        model_inputs = {
+            key: value.to(model_device) if hasattr(value, "to") else value
+            for key, value in model_inputs.items()
+        }
+        pad_token_id = tokenizer.pad_token_id
+        eos_token_id = tokenizer.eos_token_id
+        decode_fn = lambda ids: tokenizer.batch_decode(  # noqa: E731
+            ids,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=False,
+        )[0].strip()
 
     generation_kwargs = {
         "max_new_tokens": max_tokens,
-        "pad_token_id": tokenizer.pad_token_id,
-        "eos_token_id": tokenizer.eos_token_id,
+        "pad_token_id": pad_token_id,
+        "eos_token_id": eos_token_id,
         "do_sample": temperature > 0,
     }
     if temperature > 0:
@@ -401,11 +503,7 @@ def request_summary_transformers(
 
     input_length = model_inputs["input_ids"].shape[1]
     completion_ids = generated_ids[:, input_length:]
-    text = tokenizer.batch_decode(
-        completion_ids,
-        skip_special_tokens=True,
-        clean_up_tokenization_spaces=False,
-    )[0].strip()
+    text = decode_fn(completion_ids)
     text = strip_reasoning_markup(text)
     if not text:
         raise RuntimeError("Local transformers generation returned an empty response.")
@@ -427,20 +525,28 @@ def main() -> None:
     client = None
     local_backend = None
     if args.backend == "openai":
+        from openai import OpenAI
+
         api_key = args.api_key or os.getenv("OPENAI_API_KEY") or "EMPTY"
         client_kwargs = {"api_key": api_key}
         if args.base_url:
             client_kwargs["base_url"] = args.base_url
         client = OpenAI(**client_kwargs)
     else:
-        if not args.text_only:
-            raise ValueError("The transformers backend currently supports only --text_only generation.")
-        local_backend = load_transformers_text_backend(
-            model_id=args.model,
-            device_map=args.device_map,
-            torch_dtype=args.torch_dtype,
-            trust_remote_code=args.trust_remote_code,
-        )
+        if args.text_only:
+            local_backend = load_transformers_text_backend(
+                model_id=args.model,
+                device_map=args.device_map,
+                torch_dtype=args.torch_dtype,
+                trust_remote_code=args.trust_remote_code,
+            )
+        else:
+            local_backend = load_transformers_multimodal_backend(
+                model_id=args.model,
+                device_map=args.device_map,
+                torch_dtype=args.torch_dtype,
+                trust_remote_code=args.trust_remote_code,
+            )
 
     cache = load_cache(cache_path)
     output = []
@@ -495,6 +601,8 @@ def main() -> None:
                     backend=local_backend,
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
+                    frames=frames,
+                    max_side=args.max_side,
                     temperature=args.temperature,
                     max_tokens=args.max_tokens,
                     enable_thinking=args.enable_thinking,
