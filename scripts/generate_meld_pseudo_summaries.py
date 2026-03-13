@@ -1,5 +1,6 @@
 import argparse
 import base64
+import csv
 import json
 import os
 import re
@@ -22,6 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input_pt", type=str, required=True, help="Source MELD .pt file")
     parser.add_argument("--videos_root", type=str, required=True, help="Directory that contains dia{d}_utt{u}.mp4")
     parser.add_argument("--output_pt", type=str, required=True, help="Destination .pt with pseudo target_text")
+    parser.add_argument("--meld_csv", type=str, default="", help="Optional MELD CSV with StartTime/EndTime for timestamp-aligned frame extraction")
     parser.add_argument("--cache_json", type=str, default="", help="Optional cache file to resume generation")
     parser.add_argument("--style_examples_pt", type=str, default="out/fusion_dataset.pt")
     parser.add_argument("--style_examples", type=int, default=4)
@@ -78,6 +80,45 @@ def parse_meld_video_path(videos_root: Path, sample_id: str) -> Path:
     return videos_root / f"dia{dialogue_id}_utt{utterance_id}.mp4"
 
 
+def time_str_to_seconds(value: str) -> float:
+    if not isinstance(value, str):
+        return 0.0
+    s = value.strip()
+    if not s:
+        return 0.0
+    hour_str, minute_str, second_ms_str = s.split(":")
+    second_str, millisecond_str = second_ms_str.split(",")
+    return (
+        int(hour_str) * 3600
+        + int(minute_str) * 60
+        + int(second_str)
+        + int(millisecond_str) / 1000.0
+    )
+
+
+def load_meld_time_ranges(csv_path: str) -> dict[str, tuple[float, float]]:
+    if not csv_path:
+        return {}
+    path = Path(csv_path)
+    if not path.exists():
+        raise FileNotFoundError(f"MELD CSV not found: {path}")
+
+    mapping: dict[str, tuple[float, float]] = {}
+    with open(path, "r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            try:
+                dialogue_id = int(str(row.get("Dialogue_ID", "")).strip())
+                utterance_id = int(str(row.get("Utterance_ID", "")).strip())
+            except ValueError:
+                continue
+            sample_id = f"meld_d{dialogue_id}_u{utterance_id}"
+            start_t = time_str_to_seconds(str(row.get("StartTime", "")))
+            end_t = time_str_to_seconds(str(row.get("EndTime", "")))
+            mapping[sample_id] = (start_t, end_t)
+    return mapping
+
+
 def choose_frame_indices(frame_count: int, num_frames: int) -> list[int]:
     if frame_count <= 1 or num_frames == 1:
         return [max(0, frame_count // 2)]
@@ -106,6 +147,37 @@ def extract_frames(video_path: Path, num_frames: int) -> list[Image.Image]:
 
     capture.release()
     return frames
+
+
+def extract_frames_at_times(video_path: Path, timestamps: list[float]) -> list[Image.Image]:
+    capture = cv2.VideoCapture(str(video_path))
+    if not capture.isOpened():
+        raise RuntimeError(f"Could not open video: {video_path}")
+
+    frames = []
+    for t_sec in timestamps:
+        capture.set(cv2.CAP_PROP_POS_MSEC, max(0.0, float(t_sec)) * 1000.0)
+        ok, frame_bgr = capture.read()
+        if not ok or frame_bgr is None:
+            continue
+        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        frames.append(Image.fromarray(frame_rgb))
+
+    capture.release()
+    return frames
+
+
+def choose_timepoints(start_t: float, end_t: float, num_frames: int) -> list[float]:
+    if not (end_t > start_t):
+        return [max(0.0, start_t)]
+    if num_frames == 1:
+        return [(start_t + end_t) / 2.0]
+    duration = end_t - start_t
+    return [
+        start_t + duration * 0.2,
+        start_t + duration * 0.5,
+        start_t + duration * 0.8,
+    ]
 
 
 def resize_image(image: Image.Image, max_side: int) -> Image.Image:
@@ -518,6 +590,7 @@ def main() -> None:
     output_path = Path(args.output_pt)
     cache_path = args.cache_json or str(output_path.with_suffix(".cache.json"))
     frame_cache_dir = Path(args.frame_cache_dir)
+    meld_time_ranges = load_meld_time_ranges(args.meld_csv)
 
     dataset = torch.load(input_path, map_location="cpu")
     style_examples = load_style_examples(args.style_examples_pt, args.style_examples)
@@ -570,7 +643,11 @@ def main() -> None:
         frames = []
         video_path = parse_meld_video_path(videos_root, sample_id)
         if not args.text_only and video_path.exists():
-            frames = extract_frames(video_path, args.num_frames)
+            if sample_id in meld_time_ranges:
+                start_t, end_t = meld_time_ranges[sample_id]
+                frames = extract_frames_at_times(video_path, choose_timepoints(start_t, end_t, args.num_frames))
+            else:
+                frames = extract_frames(video_path, args.num_frames)
 
         if not args.text_only and not frames and not args.allow_text_only:
             print(f"[skip] no frames: {sample_id} -> {video_path}")
