@@ -6,7 +6,7 @@ import os
 import re
 from io import BytesIO
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 import cv2
 import torch
@@ -298,7 +298,7 @@ def build_multimodal_content(
 
 
 def request_summary(
-    client: OpenAI,
+    client: Any,
     model: str,
     system_prompt: str,
     user_prompt: str,
