@@ -142,6 +142,14 @@ py -3 scripts/generate_meld_pseudo_summaries.py --input_pt out/meld_train.pt --v
 
 For Qwen 3.x endpoints, the script disables model-side thinking by default so the response budget is spent on the visible summary text instead of hidden reasoning. Pass `--enable_thinking` only if you explicitly want reasoning mode.
 
+If you want to avoid hosted API credits entirely, the same script can load a local Hugging Face model through `transformers` for text-only pseudo-summary generation:
+
+```bash
+py -3 scripts/generate_meld_pseudo_summaries.py --backend transformers --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --output_pt out/meld_train_pseudo_text.pt --model Qwen/Qwen3.5-9B --text_only --allow_text_only --device_map auto --torch_dtype float16 --trust_remote_code
+```
+
+For Qwen 3.5 local loading, use a recent `transformers` build as recommended by the official model card.
+
 Notes:
 
 - `fusion_dataset.pt` and the MELD `.pt` files must include `target_text` entries. `src/Embedding.py` already writes that field when the source JSON contains summary text.

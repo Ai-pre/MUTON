@@ -26,7 +26,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cache_json", type=str, default="", help="Optional cache file to resume generation")
     parser.add_argument("--style_examples_pt", type=str, default="out/fusion_dataset.pt")
     parser.add_argument("--style_examples", type=int, default=4)
-    parser.add_argument("--model", type=str, required=True, help="OpenAI-compatible multimodal model name")
+    parser.add_argument("--backend", type=str, default="openai", choices=["openai", "transformers"])
+    parser.add_argument("--model", type=str, required=True, help="Model id for the selected backend")
     parser.add_argument("--base_url", type=str, default="", help="Optional OpenAI-compatible base URL")
     parser.add_argument("--api_key", type=str, default="", help="Optional API key override")
     parser.add_argument("--text_only", action="store_true", help="Ignore video frames and generate summaries from translated script only")
@@ -38,6 +39,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--max_tokens", type=int, default=120)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--device_map", type=str, default="auto", help="Transformers backend device_map setting")
+    parser.add_argument("--torch_dtype", type=str, default="auto", choices=["auto", "float16", "bfloat16", "float32"])
+    parser.add_argument("--trust_remote_code", action="store_true", help="Allow custom model code for the transformers backend")
     parser.add_argument(
         "--enable_thinking",
         action="store_true",
@@ -277,6 +281,137 @@ def request_summary(
     raise RuntimeError("Model returned an empty response.")
 
 
+def resolve_torch_dtype(name: str):
+    mapping = {
+        "auto": "auto",
+        "float16": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "float32": torch.float32,
+    }
+    return mapping[name]
+
+
+def load_transformers_text_backend(model_id: str, device_map: str, torch_dtype: str, trust_remote_code: bool) -> dict:
+    try:
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+    except Exception as error:
+        raise RuntimeError(
+            "Transformers backend requires a newer Hugging Face transformers install. "
+            "Qwen3.5's model card recommends installing the latest transformers."
+        ) from error
+
+    model_kwargs = {
+        "trust_remote_code": trust_remote_code,
+    }
+    resolved_dtype = resolve_torch_dtype(torch_dtype)
+    if resolved_dtype != "auto":
+        model_kwargs["torch_dtype"] = resolved_dtype
+    if device_map:
+        model_kwargs["device_map"] = device_map
+
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=trust_remote_code)
+        model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
+    except Exception as error:
+        raise RuntimeError(
+            "Failed to load the local transformers backend. "
+            "For Qwen3.5, use a recent transformers build as recommended by the official model card."
+        ) from error
+
+    if tokenizer.pad_token_id is None and tokenizer.eos_token_id is not None:
+        tokenizer.pad_token = tokenizer.eos_token
+    return {"tokenizer": tokenizer, "model": model}
+
+
+def build_tokenizer_chat_inputs(tokenizer, messages: list[dict], enable_thinking: bool) -> dict:
+    apply_kwargs = {
+        "add_generation_prompt": True,
+    }
+    if not enable_thinking:
+        apply_kwargs["enable_thinking"] = False
+
+    try:
+        return tokenizer.apply_chat_template(
+            messages,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+            **apply_kwargs,
+        )
+    except TypeError:
+        fallback_kwargs = {"add_generation_prompt": True}
+        if not enable_thinking:
+            fallback_kwargs["chat_template_kwargs"] = {"enable_thinking": False}
+        try:
+            return tokenizer.apply_chat_template(
+                messages,
+                tokenize=True,
+                return_dict=True,
+                return_tensors="pt",
+                **fallback_kwargs,
+            )
+        except TypeError:
+            prompt_text = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                **fallback_kwargs,
+            )
+            return tokenizer(prompt_text, return_tensors="pt")
+
+
+def strip_reasoning_markup(text: str) -> str:
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    if text.startswith("Thinking Process:"):
+        text = text.split("\n\n", 1)[-1].strip()
+    return text
+
+
+def request_summary_transformers(
+    backend: dict,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float,
+    max_tokens: int,
+    enable_thinking: bool,
+) -> str:
+    tokenizer = backend["tokenizer"]
+    model = backend["model"]
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    model_inputs = build_tokenizer_chat_inputs(tokenizer, messages, enable_thinking=enable_thinking)
+    model_device = getattr(model, "device", torch.device("cpu"))
+    model_inputs = {
+        key: value.to(model_device) if hasattr(value, "to") else value
+        for key, value in model_inputs.items()
+    }
+
+    generation_kwargs = {
+        "max_new_tokens": max_tokens,
+        "pad_token_id": tokenizer.pad_token_id,
+        "eos_token_id": tokenizer.eos_token_id,
+        "do_sample": temperature > 0,
+    }
+    if temperature > 0:
+        generation_kwargs["temperature"] = temperature
+
+    with torch.inference_mode():
+        generated_ids = model.generate(**model_inputs, **generation_kwargs)
+
+    input_length = model_inputs["input_ids"].shape[1]
+    completion_ids = generated_ids[:, input_length:]
+    text = tokenizer.batch_decode(
+        completion_ids,
+        skip_special_tokens=True,
+        clean_up_tokenization_spaces=False,
+    )[0].strip()
+    text = strip_reasoning_markup(text)
+    if not text:
+        raise RuntimeError("Local transformers generation returned an empty response.")
+    return text
+
+
 def main() -> None:
     args = parse_args()
 
@@ -289,11 +424,23 @@ def main() -> None:
     dataset = torch.load(input_path, map_location="cpu")
     style_examples = load_style_examples(args.style_examples_pt, args.style_examples)
 
-    api_key = args.api_key or os.getenv("OPENAI_API_KEY") or "EMPTY"
-    client_kwargs = {"api_key": api_key}
-    if args.base_url:
-        client_kwargs["base_url"] = args.base_url
-    client = OpenAI(**client_kwargs)
+    client = None
+    local_backend = None
+    if args.backend == "openai":
+        api_key = args.api_key or os.getenv("OPENAI_API_KEY") or "EMPTY"
+        client_kwargs = {"api_key": api_key}
+        if args.base_url:
+            client_kwargs["base_url"] = args.base_url
+        client = OpenAI(**client_kwargs)
+    else:
+        if not args.text_only:
+            raise ValueError("The transformers backend currently supports only --text_only generation.")
+        local_backend = load_transformers_text_backend(
+            model_id=args.model,
+            device_map=args.device_map,
+            torch_dtype=args.torch_dtype,
+            trust_remote_code=args.trust_remote_code,
+        )
 
     cache = load_cache(cache_path)
     output = []
@@ -327,21 +474,31 @@ def main() -> None:
         emotion = str(sample.get("emotion", "")).strip() if args.use_emotion_label else None
         system_prompt, user_prompt = build_prompts(style_examples, transcript, emotion)
         try:
-            pseudo = request_summary(
-                client=client,
-                model=args.model,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                frames=frames,
-                sample_id=sample_id,
-                media_mode=args.media_mode,
-                frame_cache_dir=frame_cache_dir,
-                max_side=args.max_side,
-                jpeg_quality=args.jpeg_quality,
-                temperature=args.temperature,
-                max_tokens=args.max_tokens,
-                enable_thinking=args.enable_thinking,
-            )
+            if args.backend == "openai":
+                pseudo = request_summary(
+                    client=client,
+                    model=args.model,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    frames=frames,
+                    sample_id=sample_id,
+                    media_mode=args.media_mode,
+                    frame_cache_dir=frame_cache_dir,
+                    max_side=args.max_side,
+                    jpeg_quality=args.jpeg_quality,
+                    temperature=args.temperature,
+                    max_tokens=args.max_tokens,
+                    enable_thinking=args.enable_thinking,
+                )
+            else:
+                pseudo = request_summary_transformers(
+                    backend=local_backend,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    temperature=args.temperature,
+                    max_tokens=args.max_tokens,
+                    enable_thinking=args.enable_thinking,
+                )
         except Exception as error:
             print(f"[error] {sample_id}: {error}")
             output.append(sample)
