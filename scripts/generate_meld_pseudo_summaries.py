@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import cv2
+import numpy as np
 import torch
 from PIL import Image
 
