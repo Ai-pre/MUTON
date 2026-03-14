@@ -175,6 +175,38 @@ Notes:
 - `fusion_dataset.pt` and the MELD `.pt` files must include `target_text` entries. `src/Embedding.py` already writes that field when the source JSON contains summary text.
 - This is an experimental training path for research iteration. It does not replace the current FastAPI inference server yet.
 
+### 5A. Rich Multimodal Sequence Path
+
+If you want the decoder to cross-attend to richer multimodal sequences instead of one compressed token per modality, build the rich datasets first.
+
+Stage A rich MELD dataset:
+
+```bash
+py -3 scripts/build_rich_meld_dataset.py --input_pt out/meld_train_pseudo_mm.pt --videos_root data/MELD/MELD.Raw/train_splits --meld_csv data/MELD/MELD.Raw/train_sent_emo.csv --out_pt out/meld_train_rich.pt --num_frames 1 --max_face_tokens 96 --max_audio_tokens 128 --max_text_tokens 48 --debug_face_dir out/meld_face_debug
+py -3 scripts/build_rich_meld_dataset.py --input_pt out/meld_dev_pseudo_mm.pt --videos_root data/MELD/MELD.Raw/dev_splits --meld_csv data/MELD/MELD.Raw/dev_sent_emo.csv --out_pt out/meld_dev_rich.pt --num_frames 1 --max_face_tokens 96 --max_audio_tokens 128 --max_text_tokens 48
+```
+
+Stage B rich Korean dataset:
+
+```bash
+py -3 scripts/build_rich_ko_dataset.py --out_pt out/fusion_dataset_rich.pt --max_face_tokens 96 --max_audio_tokens 128 --max_text_tokens 48
+```
+
+Then train the richer sequence-level fusion model:
+
+```bash
+py -3 scripts/train_rich_fusion_seq2seq_two_stage.py --stage_a_train_pt out/meld_train_rich.pt --stage_a_val_pt out/meld_dev_rich.pt --stage_b_train_pt out/fusion_dataset_rich.pt
+```
+
+This richer path keeps:
+
+- face patch token sequences
+- audio frame token sequences
+- text token sequences
+- auxiliary face emotion, speaker, and prosody summary tokens
+
+The legacy `src/train_fusion_seq2seq.py` path is still available for comparison, but the new rich path is the one to use when you want the decoder to see more than one compressed modality token.
+
 ### 6. Run the FastAPI server
 
 ```bash
