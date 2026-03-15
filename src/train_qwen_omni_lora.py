@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import os
 from typing import Any, Dict, List, Optional
 
@@ -205,24 +206,31 @@ def main() -> None:
     eval_dataset = JsonlConversationDataset(args.val_jsonl) if args.val_jsonl else None
     collator = OmniChatCollator(processor=processor, max_length=args.max_length)
 
-    training_args = TrainingArguments(
-        output_dir=args.output_dir,
-        per_device_train_batch_size=args.batch_size,
-        per_device_eval_batch_size=args.batch_size,
-        gradient_accumulation_steps=args.grad_accum,
-        num_train_epochs=args.epochs,
-        learning_rate=args.learning_rate,
-        weight_decay=args.weight_decay,
-        warmup_ratio=args.warmup_ratio,
-        logging_steps=args.logging_steps,
-        save_strategy="epoch",
-        evaluation_strategy="epoch" if eval_dataset is not None else "no",
-        save_total_limit=args.save_total_limit,
-        remove_unused_columns=False,
-        bf16=(torch_dtype == torch.bfloat16),
-        fp16=(torch_dtype == torch.float16),
-        report_to=[],
-    )
+    training_kwargs = {
+        "output_dir": args.output_dir,
+        "per_device_train_batch_size": args.batch_size,
+        "per_device_eval_batch_size": args.batch_size,
+        "gradient_accumulation_steps": args.grad_accum,
+        "num_train_epochs": args.epochs,
+        "learning_rate": args.learning_rate,
+        "weight_decay": args.weight_decay,
+        "warmup_ratio": args.warmup_ratio,
+        "logging_steps": args.logging_steps,
+        "save_strategy": "epoch",
+        "save_total_limit": args.save_total_limit,
+        "remove_unused_columns": False,
+        "bf16": (torch_dtype == torch.bfloat16),
+        "fp16": (torch_dtype == torch.float16),
+        "report_to": [],
+    }
+
+    signature = inspect.signature(TrainingArguments.__init__)
+    if "evaluation_strategy" in signature.parameters:
+        training_kwargs["evaluation_strategy"] = "epoch" if eval_dataset is not None else "no"
+    elif "eval_strategy" in signature.parameters:
+        training_kwargs["eval_strategy"] = "epoch" if eval_dataset is not None else "no"
+
+    training_args = TrainingArguments(**training_kwargs)
 
     trainer = Trainer(
         model=model,
