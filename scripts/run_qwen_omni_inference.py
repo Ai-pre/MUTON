@@ -9,21 +9,47 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.qwen_omni_dataset import DEFAULT_INSTRUCTION, DEFAULT_SYSTEM_PROMPT, build_messages, materialize_messages
+from src.qwen_omni_dataset import (
+    DEFAULT_INSTRUCTION,
+    DEFAULT_SYSTEM_PROMPT,
+    build_messages,
+    load_jsonl,
+    materialize_messages,
+)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run local Qwen2.5-Omni Thinker inference on image+audio+text input.")
     parser.add_argument("--model_name", type=str, default="Qwen/Qwen2.5-Omni-7B")
-    parser.add_argument("--image", type=str, action="append", required=True, help="One or more image paths")
-    parser.add_argument("--audio", type=str, required=True, help="Audio path")
-    parser.add_argument("--script", type=str, required=True, help="Transcript/script text")
+    parser.add_argument("--image", type=str, action="append", default=[], help="One or more image paths")
+    parser.add_argument("--audio", type=str, default="", help="Audio path")
+    parser.add_argument("--script", type=str, default="", help="Transcript/script text")
+    parser.add_argument("--sample_jsonl", type=str, default="", help="Optional JSONL manifest to pull a sample from")
+    parser.add_argument("--sample_index", type=int, default=0, help="0-based sample index when using --sample_jsonl")
     parser.add_argument("--prompt", type=str, default=DEFAULT_INSTRUCTION)
     parser.add_argument("--system_prompt", type=str, default=DEFAULT_SYSTEM_PROMPT)
     parser.add_argument("--adapter", type=str, default="", help="Optional LoRA adapter directory")
     parser.add_argument("--torch_dtype", type=str, default="bfloat16", choices=["float16", "bfloat16", "float32"])
     parser.add_argument("--max_new_tokens", type=int, default=96)
     args = parser.parse_args()
+
+    if args.sample_jsonl:
+        samples = load_jsonl(args.sample_jsonl)
+        if not samples:
+            raise RuntimeError(f"No samples found in {args.sample_jsonl}")
+        if args.sample_index < 0 or args.sample_index >= len(samples):
+            raise IndexError(f"sample_index out of range: {args.sample_index} for {len(samples)} samples")
+        sample = samples[args.sample_index]
+        args.image = list(sample.get("image_paths", []))
+        args.audio = str(sample.get("audio_path", ""))
+        args.script = str(sample.get("script", ""))
+
+    if not args.image:
+        raise RuntimeError("Provide --image or use --sample_jsonl with a sample that includes image_paths.")
+    if not args.audio:
+        raise RuntimeError("Provide --audio or use --sample_jsonl with a sample that includes audio_path.")
+    if not args.script:
+        raise RuntimeError("Provide --script or use --sample_jsonl with a sample that includes script.")
 
     dtype = {
         "float16": torch.float16,
