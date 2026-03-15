@@ -130,7 +130,7 @@ def export_meld_manifest(
     include_emotion_label: bool,
     limit: int,
 ) -> List[Dict[str, Any]]:
-    data = torch.load(input_pt, map_location="cpu")
+    data = torch.load(input_pt, map_location="cpu", weights_only=False)
     time_ranges = load_meld_time_ranges(meld_csv)
     videos_root_path = Path(videos_root)
     media_root_path = Path(media_root)
