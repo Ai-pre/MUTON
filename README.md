@@ -207,6 +207,50 @@ This richer path keeps:
 
 The legacy `src/train_fusion_seq2seq.py` path is still available for comparison, but the new rich path is the one to use when you want the decoder to see more than one compressed modality token.
 
+### 5B. Qwen2.5-Omni Path
+
+If you want to move away from the custom fusion decoder and fine-tune an end-to-end multimodal open model instead, this branch also includes a Qwen2.5-Omni path.
+
+Install the separate Qwen environment dependencies instead of changing the stable training environment:
+
+```bash
+pip install -r requirements-qwen-omni.txt
+```
+
+Export MELD into Qwen2.5-Omni JSONL:
+
+```bash
+python scripts/export_qwen_omni_meld_dataset.py --input_pt out/meld_train_pseudo_mm.pt --videos_root data/MELD/MELD.Raw/train_splits --meld_csv data/MELD/MELD.Raw/train_sent_emo.csv --out_jsonl out/qwen_omni_meld_train.jsonl --media_root out/qwen_omni_meld_train_media
+python scripts/export_qwen_omni_meld_dataset.py --input_pt out/meld_dev_pseudo_mm.pt --videos_root data/MELD/MELD.Raw/dev_splits --meld_csv data/MELD/MELD.Raw/dev_sent_emo.csv --out_jsonl out/qwen_omni_meld_dev.jsonl --media_root out/qwen_omni_meld_dev_media
+```
+
+Export the Korean dataset into Qwen2.5-Omni JSONL:
+
+```bash
+python scripts/export_qwen_omni_ko_dataset.py --json_path preprocessing/multi_text.json --face_root data/Korea/face_crops --audio_root data/Korea/audio --out_jsonl out/qwen_omni_ko.jsonl
+```
+
+Run a local inference sanity check:
+
+```bash
+python scripts/run_qwen_omni_inference.py --image data/Korea/face_crops/001/example.jpg --audio data/Korea/audio/001/example.wav --script "어렵단 말이야." --model_name Qwen/Qwen2.5-Omni-7B
+```
+
+Then LoRA fine-tune the Thinker model:
+
+```bash
+python scripts/train_qwen_omni_lora_two_stage.py --model_name Qwen/Qwen2.5-Omni-7B --stage_a_train_jsonl out/qwen_omni_meld_train.jsonl --stage_a_val_jsonl out/qwen_omni_meld_dev.jsonl --stage_b_train_jsonl out/qwen_omni_ko.jsonl --load_in_4bit --gradient_checkpointing
+```
+
+This path uses:
+
+- face crop images or MELD-derived face crops
+- raw audio wav files
+- original script text
+- one-stage multimodal chat supervision for Qwen2.5-Omni Thinker
+
+It is a different research direction from the fusion encoder experiments and is meant for branch-level comparison, not as a drop-in replacement for the current FastAPI server.
+
 ### 6. Run the FastAPI server
 
 ```bash
