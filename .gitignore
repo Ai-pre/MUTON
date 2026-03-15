@@ -1,9 +1,0 @@
-.env
-.vscode/
-__pycache__/
-data/
-out/
-*.pt
-*.pth
-*.log
-google-services.json
