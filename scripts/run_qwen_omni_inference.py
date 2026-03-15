@@ -31,6 +31,8 @@ def main() -> None:
     parser.add_argument("--adapter", type=str, default="", help="Optional LoRA adapter directory")
     parser.add_argument("--torch_dtype", type=str, default="bfloat16", choices=["float16", "bfloat16", "float32"])
     parser.add_argument("--max_new_tokens", type=int, default=96)
+    parser.add_argument("--repetition_penalty", type=float, default=1.1)
+    parser.add_argument("--no_repeat_ngram_size", type=int, default=3)
     args = parser.parse_args()
 
     if args.sample_jsonl:
@@ -93,9 +95,27 @@ def main() -> None:
     inputs = {key: value.to(model.device) if torch.is_tensor(value) else value for key, value in dict(inputs).items()}
 
     with torch.no_grad():
-        generated = model.generate(**inputs, max_new_tokens=args.max_new_tokens)
+        generated = model.generate(
+            **inputs,
+            max_new_tokens=args.max_new_tokens,
+            do_sample=False,
+            repetition_penalty=args.repetition_penalty,
+            no_repeat_ngram_size=args.no_repeat_ngram_size,
+            eos_token_id=processor.tokenizer.eos_token_id,
+            pad_token_id=processor.tokenizer.pad_token_id or processor.tokenizer.eos_token_id,
+        )
     prompt_len = inputs["input_ids"].shape[1]
     generated_text = processor.batch_decode(generated[:, prompt_len:], skip_special_tokens=True)[0]
+    for stop_marker in [
+        "\nHuman",
+        "\nAssistant",
+        "Human\n",
+        "Assistant\n",
+        "Human",
+        "Assistant",
+    ]:
+        if stop_marker in generated_text:
+            generated_text = generated_text.split(stop_marker, 1)[0]
     print(generated_text.strip())
 
 
