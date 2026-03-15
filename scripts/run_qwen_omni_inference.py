@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.qwen_omni_dataset import DEFAULT_INSTRUCTION, DEFAULT_SYSTEM_PROMPT, build_messages
+from src.qwen_omni_dataset import DEFAULT_INSTRUCTION, DEFAULT_SYSTEM_PROMPT, build_messages, materialize_messages
 
 
 def main() -> None:
@@ -51,6 +51,10 @@ def main() -> None:
         system_prompt=args.system_prompt,
         emotion="",
     )[:-1]
+    messages = materialize_messages(
+        messages,
+        audio_sampling_rate=getattr(processor.feature_extractor, "sampling_rate", 16000),
+    )
 
     inputs = processor.apply_chat_template(
         [messages],

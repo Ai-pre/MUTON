@@ -14,7 +14,7 @@ from transformers import (
     TrainingArguments,
 )
 
-from src.qwen_omni_dataset import load_jsonl
+from src.qwen_omni_dataset import load_jsonl, materialize_messages
 
 
 def parse_torch_dtype(name: str) -> torch.dtype:
@@ -49,6 +49,7 @@ class OmniChatCollator:
         self.processor = processor
         self.max_length = max_length
         self.padding = padding
+        self.audio_sampling_rate = getattr(processor.feature_extractor, "sampling_rate", 16000)
 
     def _tokenize_messages(
         self,
@@ -68,8 +69,14 @@ class OmniChatCollator:
         return dict(batch)
 
     def __call__(self, batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
-        full_messages = [sample["messages"] for sample in batch]
-        prompt_messages = [sample["messages"][:-1] for sample in batch]
+        full_messages = [
+            materialize_messages(sample["messages"], audio_sampling_rate=self.audio_sampling_rate)
+            for sample in batch
+        ]
+        prompt_messages = [
+            materialize_messages(sample["messages"][:-1], audio_sampling_rate=self.audio_sampling_rate)
+            for sample in batch
+        ]
 
         full_inputs = self._tokenize_messages(full_messages, add_generation_prompt=False)
         prompt_inputs = self._tokenize_messages(prompt_messages, add_generation_prompt=True)

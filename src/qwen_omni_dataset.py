@@ -7,7 +7,10 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 import cv2
+import numpy as np
+import soundfile as sf
 import torch
+from PIL import Image
 
 from muton.config import env_path
 from muton.encoders import FaceEncoder
@@ -96,6 +99,49 @@ def build_messages(
             "content": [{"type": "text", "text": target_text.strip()}],
         },
     ]
+
+
+def load_audio_array(audio_path: str, target_sr: int = 16000) -> np.ndarray:
+    waveform, sample_rate = sf.read(audio_path)
+    if getattr(waveform, "ndim", 1) > 1:
+        waveform = waveform.mean(axis=1)
+    waveform = np.asarray(waveform, dtype=np.float32)
+    if sample_rate != target_sr:
+        import librosa
+
+        waveform = librosa.resample(waveform, orig_sr=sample_rate, target_sr=target_sr)
+    return waveform.astype(np.float32, copy=False)
+
+
+def materialize_messages(messages: List[Dict[str, Any]], audio_sampling_rate: int = 16000) -> List[Dict[str, Any]]:
+    materialized: List[Dict[str, Any]] = []
+    for message in messages:
+        content_items = message.get("content")
+        if not isinstance(content_items, list):
+            materialized.append(message)
+            continue
+
+        new_items: List[Dict[str, Any]] = []
+        for item in content_items:
+            item_type = item.get("type", "")
+            if item_type == "image":
+                image_path = item.get("image") or item.get("path")
+                if image_path:
+                    image = Image.open(str(image_path)).convert("RGB")
+                    new_items.append({"type": "image", "image": image})
+                    continue
+            if item_type == "audio":
+                audio_path = item.get("audio") or item.get("path")
+                if audio_path:
+                    audio = load_audio_array(str(audio_path), target_sr=audio_sampling_rate)
+                    new_items.append({"type": "audio", "audio": audio})
+                    continue
+            new_items.append(item)
+
+        new_message = dict(message)
+        new_message["content"] = new_items
+        materialized.append(new_message)
+    return materialized
 
 
 def save_face_crops(
