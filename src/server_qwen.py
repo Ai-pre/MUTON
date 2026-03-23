@@ -36,7 +36,7 @@ QWEN_MODEL_NAME = env_str("MUTON_QWEN_MODEL_NAME", "Qwen/Qwen2.5-Omni-7B")
 QWEN_ADAPTER = str(env_path("MUTON_QWEN_ADAPTER", "out/qwen_omni_lora/ko_stage"))
 QWEN_MAX_NEW_TOKENS = int(env_str("MUTON_QWEN_MAX_NEW_TOKENS", "64"))
 QWEN_DTYPE = env_str("MUTON_QWEN_TORCH_DTYPE", "bfloat16")
-QWEN_STT_BACKEND = env_str("MUTON_QWEN_STT_BACKEND", "qwen").lower()
+QWEN_STT_BACKEND = env_str("MUTON_QWEN_STT_BACKEND", "whisper").lower()
 QWEN_STT_MAX_NEW_TOKENS = int(env_str("MUTON_QWEN_STT_MAX_NEW_TOKENS", "128"))
 QWEN_STT_USE_ADAPTER = env_str("MUTON_QWEN_STT_USE_ADAPTER", "false").lower() == "true"
 CACHE_TTL_SEC = float(env_str("MUTON_CACHE_TTL_SEC", "3.0"))
