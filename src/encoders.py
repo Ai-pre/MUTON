@@ -382,7 +382,7 @@ class AudioEncoder:
         try:
             result = self.stt_pipe(
                 {"array": waveform.astype(np.float32, copy=False), "sampling_rate": self.sample_rate},
-                max_new_tokens=self.stt_max_new_tokens,
+                max_length=self.stt_max_new_tokens,
                 return_timestamps=False,
             )
         except Exception as e:
