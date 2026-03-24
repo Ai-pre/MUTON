@@ -13,8 +13,8 @@ This split exists because the local Korean Whisper fallback is cheaper but degra
 ```bash
 cd ~/MUTON_cpy
 git fetch origin
-git checkout codex/qwen25-omni-exp
-git reset --hard origin/codex/qwen25-omni-exp
+git checkout codex/server_main
+git reset --hard origin/codex/server_main
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate muton
