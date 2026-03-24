@@ -57,6 +57,19 @@ def parse_torch_dtype(name: str) -> torch.dtype:
     return mapping[name]
 
 
+def map_visual_emotion_to_ko6(emotion: str) -> str:
+    mapping = {
+        "Angry": "Angry",
+        "Disgust": "Dislike",
+        "Happy": "Happy",
+        "Neutral": "Neutral",
+        "Sad": "Sad",
+        "Surprise": "Surprise",
+        "Fear": "Unknown",
+    }
+    return mapping.get(emotion, emotion or "Unknown")
+
+
 def build_runtime_messages(
     image: Image.Image | None,
     audio: np.ndarray | None,
@@ -305,6 +318,7 @@ async def process_video_chunk(frame: UploadFile = File(...)) -> dict[str, Any]:
     emotion = "Unknown"
     if isinstance(face_result, dict) and face_result.get("status") == "ok":
         emotion = str(face_result.get("emotion", "Unknown") or "Unknown")
+    emotion = map_visual_emotion_to_ko6(emotion)
 
     return {
         "status": "ok",
