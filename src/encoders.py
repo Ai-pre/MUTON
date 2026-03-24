@@ -268,6 +268,7 @@ class AudioEncoder:
         # which triggers noisy warnings when we drive decoding with max_new_tokens.
         try:
             self.stt_model.generation_config.max_length = None
+            self.stt_model.generation_config.max_new_tokens = None
         except Exception:
             pass
         try:
@@ -290,6 +291,11 @@ class AudioEncoder:
             torch_dtype=self.stt_torch_dtype,
             device=pipeline_device,
         )
+        try:
+            self.stt_pipe.model.generation_config.max_length = None
+            self.stt_pipe.model.generation_config.max_new_tokens = None
+        except Exception:
+            pass
 
         print("Loading Silero VAD...")
         self.vad_model, _utils = torch.hub.load(
@@ -375,6 +381,9 @@ class AudioEncoder:
 
         repeated_char_match = re.fullmatch(r"(.{1,2})\1{2,}", filtered_text)
         if repeated_char_match:
+            return None
+        repeated_korean_span = re.search(r"([가-힣]{1,4})\1{2,}", filtered_text)
+        if repeated_korean_span:
             return None
 
         raw_tokens = filtered_text.split()
