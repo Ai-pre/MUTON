@@ -1,4 +1,4 @@
-# Server/src/muton/encoders.py
+﻿# Server/src/muton/encoders.py
 from __future__ import annotations
 
 import io
@@ -34,11 +34,11 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 # =========================
-# Face Encoder (원본 face.py 로직 그대로)
+# Face Encoder (?먮낯 face.py 濡쒖쭅 洹몃?濡?
 # =========================
 @dataclass
 class FaceConfig:
-    resize_width: int = 256  # 원본에 있었음 :contentReference[oaicite:4]{index=4}
+    resize_width: int = 256  # ?먮낯???덉뿀??:contentReference[oaicite:4]{index=4}
 
 
 class FaceEncoder:
@@ -60,14 +60,14 @@ class FaceEncoder:
         self.model = AutoModelForImageClassification.from_pretrained(model_id).to(DEVICE).eval()
 
         self.mar_history = collections.deque(maxlen=5)
-        self.MOVEMENT_THRESHOLD = 0.0003  # 원본 그대로 :contentReference[oaicite:5]{index=5}
+        self.MOVEMENT_THRESHOLD = 0.0003  # ?먮낯 洹몃?濡?:contentReference[oaicite:5]{index=5}
 
     def decode_jpeg(self, jpeg_bytes: bytes) -> Optional[np.ndarray]:
         arr = np.frombuffer(jpeg_bytes, np.uint8)
         frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         if frame is None:
             return None
-        # ★ 원본처럼 90도 회전 유지 :contentReference[oaicite:6]{index=6}
+        # ???먮낯泥섎읆 90???뚯쟾 ?좎? :contentReference[oaicite:6]{index=6}
         frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
         return frame
 
@@ -130,7 +130,7 @@ class FaceEncoder:
         # [B] align
         aligned_frame = self.align_face(frame_bgr, landmarks)
 
-        # [C] crop (bbox + padding, 원본 그대로) :contentReference[oaicite:7]{index=7}
+        # [C] crop (bbox + padding, ?먮낯 洹몃?濡? :contentReference[oaicite:7]{index=7}
         x_list = [l.x for l in landmarks]
         y_list = [l.y for l in landmarks]
         x_min, x_max = min(x_list), max(x_list)
@@ -168,9 +168,9 @@ class FaceEncoder:
         inputs = self.processor(images=face_rgb, return_tensors="pt").to(DEVICE)
         outputs = self.model(**inputs, output_hidden_states=True, return_dict=True)
 
-        # ✅ 768 embedding (CLS)
+        # ??768 embedding (CLS)
         face_embedding = outputs.hidden_states[-1][:, 0, :].squeeze(0)  # (768,)
-        # ✅ 7 logits
+        # ??7 logits
         logits = outputs.logits.squeeze(0)  # (7,)
 
         probs = torch.softmax(logits, dim=0)
@@ -179,7 +179,7 @@ class FaceEncoder:
             for i in range(len(probs))
         }
 
-        # 감정 증폭 로직(원본 유지) :contentReference[oaicite:9]{index=9}
+        # 媛먯젙 利앺룺 濡쒖쭅(?먮낯 ?좎?) :contentReference[oaicite:9]{index=9}
         final_emotion = "Neutral"
         if scores.get("surprise", 0) > 0.15:
             final_emotion = "Surprise"
@@ -216,21 +216,12 @@ class FaceEncoder:
 
 
 # =========================
-# Audio Encoder (원본 audio.py 로직 그대로 + 키만 env로)
+# Audio Encoder (?먮낯 audio.py 濡쒖쭅 洹몃?濡?+ ?ㅻ쭔 env濡?
 # =========================
 class AudioEncoder:
     def __init__(self, device: str = DEVICE):
         self.device = device
         self.sample_rate = 16000
-
-        print("Connecting to OpenAI Whisper API...")
-        api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-        if not api_key:
-            # 서버/embedding에서 STT 안 쓰는 경우도 있으니 에러로 죽이지 않고 경고만
-            print("OPENAI_API_KEY not set. STT will return None.")
-            self.client = None
-        else:
-            self.client = OpenAI(api_key=api_key)
 
         self.audio_buffer = bytearray()
         self.stt_model_name = os.environ.get(
@@ -241,7 +232,7 @@ class AudioEncoder:
         self.stt_language = os.environ.get("MUTON_STT_LANGUAGE", "ko").strip()
         self.stt_prompt = os.environ.get(
             "MUTON_STT_PROMPT",
-            "대화 내용을 그대로 한국어 자막으로 받아써라. 의미를 바꾸지 말고 발화만 적어라.",
+            "Transcribe Korean speech faithfully as subtitles. Output only the spoken utterance.",
         ).strip()
         stt_dtype_name = os.environ.get(
             "MUTON_STT_TORCH_DTYPE",
@@ -288,15 +279,20 @@ class AudioEncoder:
         self.min_energy_threshold = 500
         self.silence_chunks = 0
         self.max_silence_chunks = 4
-        self.file_counter = 1
 
         self.noise_words = [
-            "MBC 뉴스", "MBC뉴스", "시청해주셔서 감사합니다", "구독과 좋아요", "알림 설정",
-            "투데이 별별영상", "자막뉴스", "YTN", "KBS", "SBS", "유료광고",
-            "포함하고 있습니다", "주식시황", "오늘의 주식", "뉴스 스토리", "이덕영",
-            "기자", "보도국",
+            "MBC 뉴스",
+            "시청해주셔서 감사합니다",
+            "구독과 좋아요",
+            "알림 설정",
+            "YTN",
+            "KBS",
+            "SBS",
+            "유료광고",
+            "기자",
+            "보도국",
         ]
-        self.filler_words = ["음...", "음", "어...", "어", "그...", "그", "아...", "아", "저...", "저", "에...", "에"]
+        self.filler_words = ["음", "어", "아", "그", "저", "으음"]
 
         print("Loading WavLM-base-plus...")
         self.wavlm = WavLMModel.from_pretrained("microsoft/wavlm-base-plus").to(self.device).eval()
@@ -320,7 +316,7 @@ class AudioEncoder:
         filtered_text = filtered_text.strip()
         filtered_text = re.sub(r"^[,\.]+", "", filtered_text).strip()
 
-        if any(x in raw_text for x in ["?좊즺愿묎퀬", "援щ룆", "湲곗옄", "?댁뒪"]):
+        if any(x in raw_text for x in ["유료광고", "구독", "기자", "뉴스"]):
             return None
         if len(filtered_text) < 2 and not any(c.isalnum() for c in filtered_text):
             return None
@@ -351,12 +347,11 @@ class AudioEncoder:
         return str(result).strip()
 
     def consume_buffered_speech(self, raw_bytes: bytes) -> tuple[Optional[str], Optional[np.ndarray]]:
-
         audio_int16 = np.frombuffer(raw_bytes, dtype=np.int16)
         if len(audio_int16) > 0:
             chunk_energy = np.sqrt(np.mean(audio_int16.astype(np.float32) ** 2))
         else:
-            chunk_energy = 0
+            chunk_energy = 0.0
 
         if len(self.audio_buffer) == 0 and chunk_energy < self.min_energy_threshold:
             return None, None
@@ -366,10 +361,10 @@ class AudioEncoder:
         is_speech = False
         if chunk_energy > self.min_energy_threshold:
             audio_float32 = audio_int16.astype(np.float32) / 32768.0
-            WINDOW_SIZE = 512
-            for i in range(0, len(audio_float32), WINDOW_SIZE):
-                chunk = audio_float32[i: i + WINDOW_SIZE]
-                if len(chunk) < WINDOW_SIZE:
+            window_size = 512
+            for i in range(0, len(audio_float32), window_size):
+                chunk = audio_float32[i : i + window_size]
+                if len(chunk) < window_size:
                     break
                 tensor_chunk = torch.from_numpy(chunk).to(self.device).unsqueeze(0)
                 speech_prob = self.vad_model(tensor_chunk, 16000).item()
@@ -382,21 +377,21 @@ class AudioEncoder:
         else:
             self.silence_chunks += 1
 
-        MIN_BUFFER = 32000
-        MAX_BUFFER = 320000
+        min_buffer = 32000
+        max_buffer = 320000
         should_send = False
 
-        if len(self.audio_buffer) > MIN_BUFFER and self.silence_chunks > self.max_silence_chunks:
+        if len(self.audio_buffer) > min_buffer and self.silence_chunks > self.max_silence_chunks:
             should_send = True
-        elif len(self.audio_buffer) > MAX_BUFFER:
+        elif len(self.audio_buffer) > max_buffer:
             should_send = True
-            print("Detected: 강제 전송 (Buffer Full)")
+            print("Detected: force send (buffer full)")
 
         if not should_send:
             return None, None
 
-        MIN_DURATION_BYTES = 25000
-        if len(self.audio_buffer) < MIN_DURATION_BYTES:
+        min_duration_bytes = 25000
+        if len(self.audio_buffer) < min_duration_bytes:
             print(f"Discarded because the chunk is too short (size={len(self.audio_buffer)})")
             self.audio_buffer = bytearray()
             self.silence_chunks = 0
@@ -421,75 +416,7 @@ class AudioEncoder:
             print(f"Local Whisper transcript: {filtered_text}")
         return filtered_text, waveform
 
-        try:
-            transcript = self.client.audio.transcriptions.create(
-                model="whisper-1",
-                file=wav_io,
-                language="ko",
-                response_format="verbose_json",
-                prompt="대화 내용입니다. 핵심 내용만 적으세요.",
-                temperature=0.0,
-            )
-
-            self.audio_buffer = bytearray()
-            self.silence_chunks = 0
-
-            raw_text = (getattr(transcript, "text", None) or (transcript.get("text") if isinstance(transcript, dict) else "") or "").strip()
-
-            segments = getattr(transcript, "segments", None)
-            if segments is None and isinstance(transcript, dict):
-                segments = transcript.get("segments", None)
-
-            if not segments:
-                return None
-
-            seg0 = segments[0]
-
-            def _get(seg, key, default=None):
-                if isinstance(seg, dict):
-                    return seg.get(key, default)
-                return getattr(seg, key, default)
-
-            avg_logprob = _get(seg0, "avg_logprob", None)
-            no_speech_prob = _get(seg0, "no_speech_prob", None)
-
-            if avg_logprob is not None and avg_logprob < -1.0:
-                print(f"Discarded because avg_logprob is too low ({avg_logprob:.2f}): {raw_text}")
-                return None
-
-            if no_speech_prob is not None and no_speech_prob > 0.8:
-                print(f"Discarded because no_speech_prob is too high ({no_speech_prob:.2f}): {raw_text}")
-                return None
-
-            if not raw_text:
-                return None
-
-            filtered_text = raw_text
-            for noise in self.noise_words:
-                filtered_text = filtered_text.replace(noise, "")
-            for filler in self.filler_words:
-                filtered_text = filtered_text.replace(f"{filler} ", "").replace(f" {filler}", "")
-                if filtered_text == filler:
-                    filtered_text = ""
-
-            filtered_text = filtered_text.strip()
-            filtered_text = re.sub(r"^[,\.]+", "", filtered_text).strip()
-
-            if any(x in raw_text for x in ["유료광고", "구독", "기자", "뉴스"]):
-                return None
-            if len(filtered_text) < 2 and not any(c.isalnum() for c in filtered_text):
-                return None
-
-            print(f"API transcript: {filtered_text}")
-            return filtered_text
-
-        except Exception as e:
-            print(f"OpenAI API Error: {e}")
-            self.audio_buffer = bytearray()
-            self.silence_chunks = 0
-            return None
-
-    # WavLM feature extractor (원본 그대로) :contentReference[oaicite:10]{index=10}
+    # WavLM feature extractor (?먮낯 洹몃?濡? :contentReference[oaicite:10]{index=10}
     def extract_features_from_pcm(self, pcm_np: np.ndarray) -> Dict[str, Any]:
         with torch.no_grad():
             wav = torch.tensor(pcm_np, dtype=torch.float32, device=self.device).unsqueeze(0)
@@ -531,7 +458,7 @@ class AudioEncoder:
 
 
 # =========================
-# Text Encoder (embedding.py에서 쓰던 mean-pool 그대로 래핑)
+# Text Encoder (embedding.py?먯꽌 ?곕뜕 mean-pool 洹몃?濡??섑븨)
 # =========================
 class TextEncoder:
     def __init__(self, model_name: str = "klue/roberta-small", device: str = DEVICE, max_length: int = 64):
@@ -576,12 +503,12 @@ class TextEncoder:
 
     @staticmethod
     def get_korean_script(sample_id: str, utterance_en: str, cache: dict) -> str:
-        # 1) 캐시에 있으면 그거 씀
+        # 1) 罹먯떆???덉쑝硫?洹멸굅 ?
         if sample_id in cache:
             return cache[sample_id]
 
-        # 2) 없으면 일단 영어 그대로(=placeholder)
-        # TODO: 여기서 OpenAI/로컬번역 호출로 바꾸면 됨
+        # 2) ?놁쑝硫??쇰떒 ?곸뼱 洹몃?濡?=placeholder)
+        # TODO: ?ш린??OpenAI/濡쒖뺄踰덉뿭 ?몄텧濡?諛붽씀硫???
         ko = utterance_en
 
         cache[sample_id] = ko
