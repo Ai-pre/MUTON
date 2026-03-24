@@ -40,6 +40,7 @@ QWEN_STT_BACKEND = env_str("MUTON_QWEN_STT_BACKEND", "whisper").lower()
 QWEN_STT_MAX_NEW_TOKENS = int(env_str("MUTON_QWEN_STT_MAX_NEW_TOKENS", "128"))
 QWEN_STT_USE_ADAPTER = env_str("MUTON_QWEN_STT_USE_ADAPTER", "false").lower() == "true"
 CACHE_TTL_SEC = float(env_str("MUTON_CACHE_TTL_SEC", "3.0"))
+STT_SUMMARY_MIN_CONFIDENCE = float(env_str("MUTON_STT_SUMMARY_MIN_CONFIDENCE", "0.55"))
 QWEN_STT_INSTRUCTION = env_str(
     "MUTON_QWEN_STT_PROMPT",
     "음성 내용을 한국어 자막용 문장으로 정확히 받아써라. 설명하지 말고 전사 결과만 출력해라.",
@@ -153,6 +154,7 @@ latest_transcript = ""
 committed_face_image: Image.Image | None = None
 committed_audio_waveform: np.ndarray | None = None
 committed_transcript = ""
+committed_transcript_confidence = 0.0
 committed_timestamp = 0.0
 last_summary_key: tuple[float, str] | None = None
 last_summary_text = ""
@@ -224,12 +226,14 @@ def generate_qwen_summary(script: str, face_image: Image.Image | None, audio: np
     return _generate_from_messages(messages, max_new_tokens=QWEN_MAX_NEW_TOKENS, use_adapter=True)
 
 
-def commit_utterance_snapshot(transcript: str, waveform: np.ndarray | None) -> None:
-    global committed_face_image, committed_audio_waveform, committed_transcript, committed_timestamp
+def commit_utterance_snapshot(transcript: str, waveform: np.ndarray | None, confidence: float) -> None:
+    global committed_face_image, committed_audio_waveform, committed_transcript, committed_transcript_confidence
+    global committed_timestamp
     global last_summary_key, last_summary_text
 
     committed_timestamp = time.time()
     committed_transcript = transcript.strip()
+    committed_transcript_confidence = float(confidence)
     committed_audio_waveform = None if waveform is None else np.array(waveform, copy=True)
     committed_face_image = latest_face_image.copy() if latest_face_image is not None else None
     last_summary_key = None
@@ -245,7 +249,7 @@ def generate_qwen_transcript(audio: np.ndarray) -> str:
     )
 
 
-def consume_audio_buffer_for_qwen_stt(raw_bytes: bytes) -> tuple[str | None, np.ndarray | None]:
+def consume_audio_buffer_for_qwen_stt(raw_bytes: bytes) -> tuple[str | None, np.ndarray | None, float]:
     audio_int16 = np.frombuffer(raw_bytes, dtype=np.int16)
     if len(audio_int16) > 0:
         chunk_energy = np.sqrt(np.mean(audio_int16.astype(np.float32) ** 2))
@@ -253,7 +257,7 @@ def consume_audio_buffer_for_qwen_stt(raw_bytes: bytes) -> tuple[str | None, np.
         chunk_energy = 0.0
 
     if len(_audio_encoder.audio_buffer) == 0 and chunk_energy < _audio_encoder.min_energy_threshold:
-        return None, None
+        return None, None, 0.0
 
     _audio_encoder.audio_buffer.extend(raw_bytes)
 
@@ -286,12 +290,12 @@ def consume_audio_buffer_for_qwen_stt(raw_bytes: bytes) -> tuple[str | None, np.
         should_send = True
 
     if not should_send:
-        return None, None
+        return None, None, 0.0
 
     if len(_audio_encoder.audio_buffer) < _audio_encoder.min_duration_bytes:
         _audio_encoder.audio_buffer = bytearray()
         _audio_encoder.silence_chunks = 0
-        return None, None
+        return None, None, 0.0
 
     full_buffer = bytes(_audio_encoder.audio_buffer)
     full_buffer_int16 = np.frombuffer(full_buffer, dtype=np.int16)
@@ -299,7 +303,7 @@ def consume_audio_buffer_for_qwen_stt(raw_bytes: bytes) -> tuple[str | None, np.
     if full_energy < _audio_encoder.min_full_energy:
         _audio_encoder.audio_buffer = bytearray()
         _audio_encoder.silence_chunks = 0
-        return None, None
+        return None, None, 0.0
 
     waveform = pcm_bytes_to_waveform(full_buffer)
     _audio_encoder.audio_buffer = bytearray()
@@ -309,12 +313,16 @@ def consume_audio_buffer_for_qwen_stt(raw_bytes: bytes) -> tuple[str | None, np.
         transcript = generate_qwen_transcript(waveform)
     except Exception as exc:
         print(f"Qwen STT error: {exc}")
-        return None, waveform
+        return None, waveform, 0.0
 
     transcript = transcript.strip()
+    confidence = _audio_encoder._estimate_transcript_confidence(transcript, waveform, float(full_energy))
+    if transcript and confidence < _audio_encoder.min_transcript_confidence:
+        print(f"Discarded because Qwen transcript confidence is too low (conf={confidence:.2f}, text={transcript})")
+        return None, waveform, confidence
     if not transcript:
-        return None, waveform
-    return transcript, waveform
+        return None, waveform, confidence
+    return transcript, waveform, confidence
 
 
 @app.get("/health")
@@ -352,28 +360,30 @@ async def process_audio_chunk(audio: UploadFile = File(...)) -> dict[str, Any]:
 
     pcm = await audio.read()
     text = ""
+    stt_confidence = 0.0
 
     if QWEN_STT_BACKEND == "qwen":
-        transcript, utterance_waveform = consume_audio_buffer_for_qwen_stt(pcm)
+        transcript, utterance_waveform, stt_confidence = consume_audio_buffer_for_qwen_stt(pcm)
         if utterance_waveform is not None:
             latest_audio_waveform = utterance_waveform
             latest_audio_timestamp = time.time()
         if transcript:
             text = transcript
             latest_transcript = text
-            commit_utterance_snapshot(text, utterance_waveform)
+            commit_utterance_snapshot(text, utterance_waveform, stt_confidence)
     else:
-        transcript, utterance_waveform = _audio_encoder.consume_buffered_speech(pcm)
+        transcript, utterance_waveform, stt_confidence = _audio_encoder.consume_buffered_speech(pcm)
         if utterance_waveform is not None:
             latest_audio_waveform = utterance_waveform
             latest_audio_timestamp = time.time()
         if transcript:
             text = transcript
             latest_transcript = text
-            commit_utterance_snapshot(text, utterance_waveform)
+            commit_utterance_snapshot(text, utterance_waveform, stt_confidence)
 
     return {
         "text": text,
+        "stt_confidence": stt_confidence,
         "prosody": [],
         "content": [],
         "speaker": [],
@@ -400,6 +410,16 @@ async def get_fusion_analysis(
     if not script:
         return {"fusion_emotion": "", "summary": ""}
 
+    if committed_transcript_confidence < STT_SUMMARY_MIN_CONFIDENCE:
+        return {
+            "fusion_emotion": "Low Confidence",
+            "fusion_confidence": committed_transcript_confidence,
+            "arousal": 0.0,
+            "valence": 0.0,
+            "summary": "",
+            "cls_attn": [],
+        }
+
     summary_key = (committed_timestamp, script)
     if last_summary_key == summary_key and last_summary_text:
         summary = last_summary_text
@@ -410,7 +430,7 @@ async def get_fusion_analysis(
 
     return {
         "fusion_emotion": "",
-        "fusion_confidence": 0.0,
+        "fusion_confidence": committed_transcript_confidence,
         "arousal": 0.0,
         "valence": 0.0,
         "summary": summary,

@@ -243,6 +243,9 @@ class AudioEncoder:
         self.min_full_energy = int(os.environ.get("MUTON_STT_MIN_UTTERANCE_ENERGY", "450").strip())
         self.max_silence_chunks = int(os.environ.get("MUTON_STT_MAX_SILENCE_CHUNKS", "7").strip())
         self.max_repeat_tokens = int(os.environ.get("MUTON_STT_MAX_REPEAT_TOKENS", "3").strip())
+        self.min_transcript_confidence = float(
+            os.environ.get("MUTON_STT_MIN_TRANSCRIPT_CONFIDENCE", "0.45").strip()
+        )
         stt_dtype_name = os.environ.get(
             "MUTON_STT_TORCH_DTYPE",
             "float16" if self.stt_device.startswith("cuda") else "float32",
@@ -318,8 +321,41 @@ class AudioEncoder:
         self.wavlm = WavLMModel.from_pretrained("microsoft/wavlm-base-plus").to(self.device).eval()
 
     def stt_with_api(self, raw_bytes: bytes) -> Optional[str]:
-        transcript, _ = self.consume_buffered_speech(raw_bytes)
+        transcript, _, _ = self.consume_buffered_speech(raw_bytes)
         return transcript
+
+    def _estimate_transcript_confidence(
+        self,
+        text: str,
+        waveform: np.ndarray,
+        full_energy: float,
+    ) -> float:
+        if not text or waveform.size == 0:
+            return 0.0
+
+        tokens = text.split()
+        duration_sec = waveform.size / self.sample_rate
+        unique_ratio = len(set(tokens)) / max(len(tokens), 1) if tokens else 0.0
+        hangul_chars = sum(1 for ch in text if "\uac00" <= ch <= "\ud7a3")
+        alnum_chars = sum(1 for ch in text if ch.isalnum())
+        hangul_ratio = min(1.0, hangul_chars / max(alnum_chars, 1))
+
+        energy_score = float(np.clip((full_energy - self.min_full_energy) / max(1, 1800 - self.min_full_energy), 0.0, 1.0))
+        duration_score = float(np.clip(duration_sec / 2.0, 0.0, 1.0))
+        token_score = float(np.clip(len(tokens) / 5.0, 0.0, 1.0))
+
+        confidence = (
+            0.30 * energy_score
+            + 0.20 * duration_score
+            + 0.20 * token_score
+            + 0.20 * unique_ratio
+            + 0.10 * hangul_ratio
+        )
+
+        if len(tokens) <= 1 and len(text) <= 4:
+            confidence *= 0.6
+
+        return float(np.clip(confidence, 0.0, 1.0))
 
     def _filter_transcript(self, raw_text: str) -> Optional[str]:
         if not raw_text:
@@ -399,7 +435,7 @@ class AudioEncoder:
             return (result.get("text") or "").strip()
         return str(result).strip()
 
-    def consume_buffered_speech(self, raw_bytes: bytes) -> tuple[Optional[str], Optional[np.ndarray]]:
+    def consume_buffered_speech(self, raw_bytes: bytes) -> tuple[Optional[str], Optional[np.ndarray], float]:
         audio_int16 = np.frombuffer(raw_bytes, dtype=np.int16)
         if len(audio_int16) > 0:
             chunk_energy = np.sqrt(np.mean(audio_int16.astype(np.float32) ** 2))
@@ -407,7 +443,7 @@ class AudioEncoder:
             chunk_energy = 0.0
 
         if len(self.audio_buffer) == 0 and chunk_energy < self.min_energy_threshold:
-            return None, None
+            return None, None, 0.0
 
         self.audio_buffer.extend(raw_bytes)
 
@@ -439,13 +475,13 @@ class AudioEncoder:
             print("Detected: force send (buffer full)")
 
         if not should_send:
-            return None, None
+            return None, None, 0.0
 
         if len(self.audio_buffer) < self.min_duration_bytes:
             print(f"Discarded because the chunk is too short (size={len(self.audio_buffer)})")
             self.audio_buffer = bytearray()
             self.silence_chunks = 0
-            return None, None
+            return None, None, 0.0
 
         full_buffer_int16 = np.frombuffer(self.audio_buffer, dtype=np.int16)
         full_energy = np.sqrt(np.mean(full_buffer_int16.astype(np.float32) ** 2))
@@ -453,7 +489,7 @@ class AudioEncoder:
             print(f"Discarded because full energy is too low (energy={int(full_energy)})")
             self.audio_buffer = bytearray()
             self.silence_chunks = 0
-            return None, None
+            return None, None, 0.0
 
         utterance_bytes = bytes(self.audio_buffer)
         waveform = np.frombuffer(utterance_bytes, dtype=np.int16).astype(np.float32) / 32768.0
@@ -462,9 +498,13 @@ class AudioEncoder:
 
         raw_text = self._transcribe_waveform(waveform)
         filtered_text = self._filter_transcript(raw_text or "")
+        confidence = self._estimate_transcript_confidence(filtered_text or "", waveform, float(full_energy))
+        if filtered_text and confidence < self.min_transcript_confidence:
+            print(f"Discarded because transcript confidence is too low (conf={confidence:.2f}, text={filtered_text})")
+            return None, waveform, confidence
         if filtered_text:
-            print(f"Local Whisper transcript: {filtered_text}")
-        return filtered_text, waveform
+            print(f"Local Whisper transcript: {filtered_text} (conf={confidence:.2f})")
+        return filtered_text, waveform, confidence
 
     # WavLM feature extractor (?먮낯 洹몃?濡? :contentReference[oaicite:10]{index=10}
     def extract_features_from_pcm(self, pcm_np: np.ndarray) -> Dict[str, Any]:
