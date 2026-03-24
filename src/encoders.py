@@ -235,6 +235,14 @@ class AudioEncoder:
             "Transcribe Korean speech faithfully as subtitles. Output only the spoken utterance.",
         ).strip()
         self.stt_max_new_tokens = int(os.environ.get("MUTON_STT_MAX_NEW_TOKENS", "64").strip())
+        self.stt_vad_threshold = float(os.environ.get("MUTON_STT_VAD_THRESHOLD", "0.85").strip())
+        self.min_energy_threshold = int(os.environ.get("MUTON_STT_MIN_CHUNK_ENERGY", "700").strip())
+        self.min_buffer_bytes = int(os.environ.get("MUTON_STT_MIN_BUFFER_BYTES", "40000").strip())
+        self.max_buffer_bytes = int(os.environ.get("MUTON_STT_MAX_BUFFER_BYTES", "320000").strip())
+        self.min_duration_bytes = int(os.environ.get("MUTON_STT_MIN_DURATION_BYTES", "40000").strip())
+        self.min_full_energy = int(os.environ.get("MUTON_STT_MIN_UTTERANCE_ENERGY", "450").strip())
+        self.max_silence_chunks = int(os.environ.get("MUTON_STT_MAX_SILENCE_CHUNKS", "7").strip())
+        self.max_repeat_tokens = int(os.environ.get("MUTON_STT_MAX_REPEAT_TOKENS", "3").strip())
         stt_dtype_name = os.environ.get(
             "MUTON_STT_TORCH_DTYPE",
             "float16" if self.stt_device.startswith("cuda") else "float32",
@@ -289,10 +297,8 @@ class AudioEncoder:
         )
         self.vad_model.to(self.device)
 
-        self.speech_threshold = 0.8
-        self.min_energy_threshold = 500
+        self.speech_threshold = self.stt_vad_threshold
         self.silence_chunks = 0
-        self.max_silence_chunks = 4
 
         self.noise_words = [
             "MBC 뉴스",
@@ -345,7 +351,7 @@ class AudioEncoder:
                     longest_repeat = max(longest_repeat, current_repeat)
                 else:
                     current_repeat = 1
-            if longest_repeat >= 4:
+            if longest_repeat >= self.max_repeat_tokens:
                 return None
 
         tokens = raw_tokens
@@ -424,21 +430,18 @@ class AudioEncoder:
         else:
             self.silence_chunks += 1
 
-        min_buffer = 32000
-        max_buffer = 320000
         should_send = False
 
-        if len(self.audio_buffer) > min_buffer and self.silence_chunks > self.max_silence_chunks:
+        if len(self.audio_buffer) > self.min_buffer_bytes and self.silence_chunks > self.max_silence_chunks:
             should_send = True
-        elif len(self.audio_buffer) > max_buffer:
+        elif len(self.audio_buffer) > self.max_buffer_bytes:
             should_send = True
             print("Detected: force send (buffer full)")
 
         if not should_send:
             return None, None
 
-        min_duration_bytes = 25000
-        if len(self.audio_buffer) < min_duration_bytes:
+        if len(self.audio_buffer) < self.min_duration_bytes:
             print(f"Discarded because the chunk is too short (size={len(self.audio_buffer)})")
             self.audio_buffer = bytearray()
             self.silence_chunks = 0
@@ -446,7 +449,7 @@ class AudioEncoder:
 
         full_buffer_int16 = np.frombuffer(self.audio_buffer, dtype=np.int16)
         full_energy = np.sqrt(np.mean(full_buffer_int16.astype(np.float32) ** 2))
-        if full_energy < 300:
+        if full_energy < self.min_full_energy:
             print(f"Discarded because full energy is too low (energy={int(full_energy)})")
             self.audio_buffer = bytearray()
             self.silence_chunks = 0

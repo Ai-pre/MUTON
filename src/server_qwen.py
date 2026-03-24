@@ -277,15 +277,18 @@ def consume_audio_buffer_for_qwen_stt(raw_bytes: bytes) -> tuple[str | None, np.
         _audio_encoder.silence_chunks += 1
 
     should_send = False
-    if len(_audio_encoder.audio_buffer) > 32000 and _audio_encoder.silence_chunks > _audio_encoder.max_silence_chunks:
+    if (
+        len(_audio_encoder.audio_buffer) > _audio_encoder.min_buffer_bytes
+        and _audio_encoder.silence_chunks > _audio_encoder.max_silence_chunks
+    ):
         should_send = True
-    elif len(_audio_encoder.audio_buffer) > 320000:
+    elif len(_audio_encoder.audio_buffer) > _audio_encoder.max_buffer_bytes:
         should_send = True
 
     if not should_send:
         return None, None
 
-    if len(_audio_encoder.audio_buffer) < 25000:
+    if len(_audio_encoder.audio_buffer) < _audio_encoder.min_duration_bytes:
         _audio_encoder.audio_buffer = bytearray()
         _audio_encoder.silence_chunks = 0
         return None, None
@@ -293,7 +296,7 @@ def consume_audio_buffer_for_qwen_stt(raw_bytes: bytes) -> tuple[str | None, np.
     full_buffer = bytes(_audio_encoder.audio_buffer)
     full_buffer_int16 = np.frombuffer(full_buffer, dtype=np.int16)
     full_energy = np.sqrt(np.mean(full_buffer_int16.astype(np.float32) ** 2)) if len(full_buffer_int16) > 0 else 0.0
-    if full_energy < 300:
+    if full_energy < _audio_encoder.min_full_energy:
         _audio_encoder.audio_buffer = bytearray()
         _audio_encoder.silence_chunks = 0
         return None, None
