@@ -11,6 +11,8 @@ This branch's current recommended runtime path is:
 
 Detailed runtime and troubleshooting notes live in [docs/QWEN_RUNTIME.md](docs/QWEN_RUNTIME.md).
 
+GitHub wiki-ready pages live under `wiki/`, and a minimal API client example lives in `examples/python_api_client.py`.
+
 ## Repository Layout
 
 ```text
