@@ -295,13 +295,22 @@ async def process_video_chunk(frame: UploadFile = File(...)) -> dict[str, Any]:
     global latest_face_image, latest_face_timestamp
 
     jpeg = await frame.read()
+    face_result = _face_encoder.encode_jpeg_bytes(jpeg)
     image, source = get_cached_face_image(jpeg)
     if image is None:
         return {"status": "error", "reason": source}
 
     latest_face_image = image
     latest_face_timestamp = time.time()
-    return {"status": "ok", "image_source": source}
+    emotion = "Unknown"
+    if isinstance(face_result, dict) and face_result.get("status") == "ok":
+        emotion = str(face_result.get("emotion", "Unknown") or "Unknown")
+
+    return {
+        "status": "ok",
+        "image_source": source,
+        "emotion": emotion,
+    }
 
 
 @app.post("/process_audio_chunk")
