@@ -252,14 +252,13 @@ class AudioEncoder:
             low_cpu_mem_usage=True,
             use_safetensors=True,
         ).to(self.stt_device).eval()
-        self.stt_forced_decoder_ids = None
         try:
-            self.stt_forced_decoder_ids = self.stt_processor.get_decoder_prompt_ids(
+            self.stt_processor.tokenizer.set_prefix_tokens(
                 language=self.stt_language,
                 task="transcribe",
             )
         except Exception:
-            self.stt_forced_decoder_ids = None
+            pass
 
         pipeline_device = -1
         if self.stt_device.startswith("cuda"):
@@ -338,11 +337,6 @@ class AudioEncoder:
         try:
             result = self.stt_pipe(
                 {"array": waveform.astype(np.float32, copy=False), "sampling_rate": self.sample_rate},
-                generate_kwargs={
-                    "forced_decoder_ids": self.stt_forced_decoder_ids,
-                    "prompt": self.stt_prompt,
-                    "temperature": 0.0,
-                },
                 return_timestamps=False,
             )
         except Exception as e:
