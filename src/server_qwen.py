@@ -320,10 +320,12 @@ async def process_audio_chunk(audio: UploadFile = File(...)) -> dict[str, Any]:
             text = transcript
             latest_transcript = text
     else:
-        latest_audio_waveform = pcm_bytes_to_waveform(pcm)
-        latest_audio_timestamp = time.time()
-        text = _audio_encoder.stt_with_api(pcm) or ""
-        if text:
+        transcript, utterance_waveform = _audio_encoder.consume_buffered_speech(pcm)
+        if utterance_waveform is not None:
+            latest_audio_waveform = utterance_waveform
+            latest_audio_timestamp = time.time()
+        if transcript:
+            text = transcript
             latest_transcript = text
 
     return {

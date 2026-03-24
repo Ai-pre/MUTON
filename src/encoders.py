@@ -20,9 +20,11 @@ from transformers import (
     AutoModel,
     AutoImageProcessor,
     AutoModelForImageClassification,
+    AutoModelForSpeechSeq2Seq,
+    AutoProcessor,
     WavLMModel,
+    pipeline,
 )
-from openai import OpenAI
 
 
 # =========================
@@ -231,6 +233,47 @@ class AudioEncoder:
             self.client = OpenAI(api_key=api_key)
 
         self.audio_buffer = bytearray()
+        self.stt_model_name = os.environ.get(
+            "MUTON_STT_MODEL_NAME",
+            "ghost613/whisper-large-v3-turbo-korean",
+        ).strip()
+        self.stt_device = os.environ.get("MUTON_STT_DEVICE", self.device).strip()
+        self.stt_language = os.environ.get("MUTON_STT_LANGUAGE", "ko").strip()
+        self.stt_prompt = os.environ.get(
+            "MUTON_STT_PROMPT",
+            "대화 내용을 그대로 한국어 자막으로 받아써라. 의미를 바꾸지 말고 발화만 적어라.",
+        ).strip()
+        stt_dtype_name = os.environ.get(
+            "MUTON_STT_TORCH_DTYPE",
+            "float16" if self.stt_device.startswith("cuda") else "float32",
+        ).strip()
+        self.stt_torch_dtype = {
+            "float16": torch.float16,
+            "bfloat16": torch.bfloat16,
+            "float32": torch.float32,
+        }.get(stt_dtype_name, torch.float16 if self.stt_device.startswith("cuda") else torch.float32)
+
+        print(f"Loading Korean Whisper STT ({self.stt_model_name})...")
+        self.stt_processor = AutoProcessor.from_pretrained(self.stt_model_name)
+        self.stt_model = AutoModelForSpeechSeq2Seq.from_pretrained(
+            self.stt_model_name,
+            torch_dtype=self.stt_torch_dtype,
+            low_cpu_mem_usage=True,
+            use_safetensors=True,
+        ).to(self.stt_device).eval()
+
+        pipeline_device = -1
+        if self.stt_device.startswith("cuda"):
+            pipeline_device = int(self.stt_device.split(":", 1)[1]) if ":" in self.stt_device else 0
+
+        self.stt_pipe = pipeline(
+            "automatic-speech-recognition",
+            model=self.stt_model,
+            tokenizer=self.stt_processor.tokenizer,
+            feature_extractor=self.stt_processor.feature_extractor,
+            torch_dtype=self.stt_torch_dtype,
+            device=pipeline_device,
+        )
 
         print("Loading Silero VAD...")
         self.vad_model, _utils = torch.hub.load(
@@ -259,8 +302,55 @@ class AudioEncoder:
         self.wavlm = WavLMModel.from_pretrained("microsoft/wavlm-base-plus").to(self.device).eval()
 
     def stt_with_api(self, raw_bytes: bytes) -> Optional[str]:
-        if self.client is None:
+        transcript, _ = self.consume_buffered_speech(raw_bytes)
+        return transcript
+
+    def _filter_transcript(self, raw_text: str) -> Optional[str]:
+        if not raw_text:
             return None
+
+        filtered_text = raw_text
+        for noise in self.noise_words:
+            filtered_text = filtered_text.replace(noise, "")
+        for filler in self.filler_words:
+            filtered_text = filtered_text.replace(f"{filler} ", "").replace(f" {filler}", "")
+            if filtered_text == filler:
+                filtered_text = ""
+
+        filtered_text = filtered_text.strip()
+        filtered_text = re.sub(r"^[,\.]+", "", filtered_text).strip()
+
+        if any(x in raw_text for x in ["?좊즺愿묎퀬", "援щ룆", "湲곗옄", "?댁뒪"]):
+            return None
+        if len(filtered_text) < 2 and not any(c.isalnum() for c in filtered_text):
+            return None
+
+        return filtered_text or None
+
+    def _transcribe_waveform(self, waveform: np.ndarray) -> Optional[str]:
+        if waveform.size == 0:
+            return None
+
+        try:
+            result = self.stt_pipe(
+                {"array": waveform.astype(np.float32, copy=False), "sampling_rate": self.sample_rate},
+                generate_kwargs={
+                    "task": "transcribe",
+                    "language": self.stt_language,
+                    "prompt": self.stt_prompt,
+                    "temperature": 0.0,
+                },
+                return_timestamps=False,
+            )
+        except Exception as e:
+            print(f"Local Whisper STT Error: {e}")
+            return None
+
+        if isinstance(result, dict):
+            return (result.get("text") or "").strip()
+        return str(result).strip()
+
+    def consume_buffered_speech(self, raw_bytes: bytes) -> tuple[Optional[str], Optional[np.ndarray]]:
 
         audio_int16 = np.frombuffer(raw_bytes, dtype=np.int16)
         if len(audio_int16) > 0:
@@ -269,7 +359,7 @@ class AudioEncoder:
             chunk_energy = 0
 
         if len(self.audio_buffer) == 0 and chunk_energy < self.min_energy_threshold:
-            return None
+            return None, None
 
         self.audio_buffer.extend(raw_bytes)
 
@@ -303,14 +393,14 @@ class AudioEncoder:
             print("Detected: 강제 전송 (Buffer Full)")
 
         if not should_send:
-            return None
+            return None, None
 
         MIN_DURATION_BYTES = 25000
         if len(self.audio_buffer) < MIN_DURATION_BYTES:
             print(f"Discarded because the chunk is too short (size={len(self.audio_buffer)})")
             self.audio_buffer = bytearray()
             self.silence_chunks = 0
-            return None
+            return None, None
 
         full_buffer_int16 = np.frombuffer(self.audio_buffer, dtype=np.int16)
         full_energy = np.sqrt(np.mean(full_buffer_int16.astype(np.float32) ** 2))
@@ -318,19 +408,18 @@ class AudioEncoder:
             print(f"Discarded because full energy is too low (energy={int(full_energy)})")
             self.audio_buffer = bytearray()
             self.silence_chunks = 0
-            return None
+            return None, None
 
-        filename = f"speech_{self.file_counter}.wav"
-        wav_io = io.BytesIO()
-        with wave.open(wav_io, "wb") as wav_file:
-            wav_file.setnchannels(1)
-            wav_file.setsampwidth(2)
-            wav_file.setframerate(16000)
-            wav_file.writeframes(self.audio_buffer)
+        utterance_bytes = bytes(self.audio_buffer)
+        waveform = np.frombuffer(utterance_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+        self.audio_buffer = bytearray()
+        self.silence_chunks = 0
 
-        self.file_counter += 1
-        wav_io.seek(0)
-        wav_io.name = filename
+        raw_text = self._transcribe_waveform(waveform)
+        filtered_text = self._filter_transcript(raw_text or "")
+        if filtered_text:
+            print(f"Local Whisper transcript: {filtered_text}")
+        return filtered_text, waveform
 
         try:
             transcript = self.client.audio.transcriptions.create(
