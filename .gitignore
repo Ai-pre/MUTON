@@ -8,6 +8,7 @@ build/
 dist/
 artifacts/
 data/
+out/
 
 # python
 __pycache__/

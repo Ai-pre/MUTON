@@ -1,291 +1,149 @@
-# MUTON_cpy
+# MUTON
 
-MUTON is a multimodal conversation-assistance research project for people with hearing loss.  
-This repository combines face, audio, and text signals to estimate emotion, arousal, valence, and a short context summary.
+MUTON is a multimodal dialogue assistance project for conversational understanding from face, audio, and transcript signals.
 
-## Repository Overview
+This branch's current recommended runtime path is:
 
-- `src/server.py`: FastAPI inference server
-- `src/encoders.py`: face, audio, and text encoder implementations
-- `src/train_fusion_meld.py`: MELD pretraining for the fusion model
-- `src/train_fusion_ko_final.py`: Korean fine-tuning on the fused dataset
-- `src/train_fusion_seq2seq.py`: experimental fusion encoder + text decoder training
-- `src/train_fusion_ko_kfold.py`: K-fold evaluation for the Korean dataset
-- `src/eval_ko_loocv.py`: leave-one-out evaluation
-- `src/Embedding.py`: build `fusion_dataset.pt` from prepared assets
-- `preprocessing/`: media extraction scripts
-- `scripts/`: stable helper entrypoints for local execution
-- `muton/`: shared config and compatibility helpers
+- multimodal summary and reasoning: `Qwen2.5-Omni`
+- speech-to-text: `OpenAI whisper-1` API
+- local fallback STT: `ghost613/whisper-large-v3-turbo-korean`
+- mobile backend discovery: `server` branch `backend_url.json`
 
-## Project Layout
+Detailed runtime and troubleshooting notes live in [docs/QWEN_RUNTIME.md](docs/QWEN_RUNTIME.md).
+
+## Repository Layout
 
 ```text
-MUTON_cpy/
-  muton/
-    config.py
-    encoders.py
+MUTON/
+  muton/                      shared config and import compatibility helpers
   scripts/
-    run_server.py
-    build_fusion_dataset.py
-  preprocessing/
-    extract_audio.py
-    extract_auido.py
-    extract_face.py
+    run_qwen_server.py        FastAPI entrypoint for the current mobile demo
+    run_server.py             legacy fusion server entrypoint
+    update_backend_url.py     writes backend_url.json for the Android app
+    export_qwen_omni_*.py     JSONL exporters for Qwen2.5-Omni LoRA training
+    train_qwen_omni_lora*.py  Qwen2.5-Omni LoRA training wrappers
   src/
-    Embedding.py
-    encoders.py
-    server.py
-    train_fusion_meld.py
-    train_fusion_ko_final.py
-    train_fusion_seq2seq.py
-    train_fusion_ko_kfold.py
-    eval_ko_loocv.py
+    server_qwen.py            current Qwen summary + STT server
+    encoders.py               face/audio encoders and STT backends
+    qwen_omni_dataset.py      JSONL dataset builders and media materialization
+    server.py                 legacy fusion server
+    fusion_seq2seq.py         legacy seq2seq experiments
+  preprocessing/             asset preparation metadata
+  backend_url.json           tracked backend URL file for Android remote config
 ```
 
-## Environment Setup
+## Quick Start
 
-Python 3.10+ is recommended.
+### 1. Install
+
+Stable project environment:
 
 ```bash
-py -3 -m venv .venv
-.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-If you use the OpenAI-backed transcription or summary flow:
-
-```powershell
-$env:OPENAI_API_KEY="your-key"
-```
-
-Repository-local paths can be overridden with environment variables. See `.env.example`.
-
-## Important Environment Variables
-
-- `MUTON_VIDEO_ROOT`: input video directory
-- `MUTON_FRAME_ROOT`: extracted frame directory
-- `MUTON_FACE_ROOT`: cropped face directory
-- `MUTON_AUDIO_ROOT`: extracted audio directory
-- `MUTON_MULTI_TEXT_JSON`: metadata JSON path
-- `MUTON_FUSION_DATASET`: output dataset path
-- `MUTON_FUSION_MODEL`: fusion checkpoint path
-- `MUTON_SELFATTN_MODEL`: self-attention training output path
-
-## Typical Workflows
-
-### 1. Extract audio
-
-```bash
-py -3 preprocessing/extract_audio.py
-```
-
-### 2. Extract face crops
-
-```bash
-py -3 preprocessing/extract_face.py
-```
-
-### 3. Build fusion dataset
-
-```bash
-py -3 scripts/build_fusion_dataset.py
-```
-
-### 4. Train the Korean fusion head
-
-```bash
-py -3 src/train_fusion_ko_final.py --pre_ckpt out/fusion_meld_pretrain_attn/best.pt --ko_pt data/fusion_dataset.pt
-```
-
-### 5. Train the experimental fusion-to-text decoder
-
-This path uses the multimodal fusion hidden states directly as encoder memory for a seq2seq decoder, instead of prompting GPT from the predicted class/arousal/valence outputs.
-
-Optional: first replace MELD's translated utterance targets with pseudo summaries generated from representative video frames plus the translated script.
-
-```bash
-py -3 scripts/generate_meld_pseudo_summaries.py --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --output_pt out/meld_train_pseudo.pt --model your-multimodal-model --base_url http://your-openai-compatible-endpoint/v1 --media_mode file
-py -3 scripts/generate_meld_pseudo_summaries.py --input_pt out/meld_dev.pt --videos_root data/MELD/MELD.Raw/dev_splits_complete --output_pt out/meld_dev_pseudo.pt --model your-multimodal-model --base_url http://your-openai-compatible-endpoint/v1 --media_mode file
-```
-
-If you serve a local multimodal vLLM endpoint and use `--media_mode file`, start the server with `--allowed-local-media-path` pointing at the generated frame cache directory, for example `out/meld_pseudo_frames`.
-
-Stage A: align the decoder on the larger MELD split.
-
-```bash
-py -3 scripts/train_fusion_seq2seq.py --pre_ckpt out/fusion_ko_final/final.pt --train_pt out/meld_train.pt --val_pt out/meld_dev.pt --emotion_space meld --decoder_model google/mt5-small --out_pt out/fusion_seq2seq/meld_best.pt
-```
-
-Stage B: fine-tune on the small Korean fused dataset.
-
-```bash
-py -3 scripts/train_fusion_seq2seq.py --pre_ckpt out/fusion_seq2seq/meld_best.pt --train_pt out/fusion_dataset.pt --emotion_space ko --decoder_model google/mt5-small --freeze_fusion_backbone --unfreeze_last_nlayers 1 --out_pt out/fusion_seq2seq/ko_best.pt
-```
-
-You can also run both stages in one shot:
-
-```bash
-py -3 scripts/train_fusion_seq2seq_two_stage.py
-```
-
-If you generated pseudo summaries, point stage A at the pseudo datasets instead:
-
-```bash
-py -3 scripts/train_fusion_seq2seq_two_stage.py --stage_a_train_pt out/meld_train_pseudo.pt --stage_a_val_pt out/meld_dev_pseudo.pt
-```
-
-If the local multimodal serving path is unstable, you can still synthesize stage-A targets from the translated MELD script alone:
-
-```bash
-py -3 scripts/generate_meld_pseudo_summaries.py --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --output_pt out/meld_train_pseudo.pt --model your-text-model --base_url http://your-openai-compatible-endpoint/v1 --text_only --allow_text_only
-```
-
-For Qwen 3.x endpoints, the script disables model-side thinking by default so the response budget is spent on the visible summary text instead of hidden reasoning. Pass `--enable_thinking` only if you explicitly want reasoning mode.
-
-If you want to avoid hosted API credits entirely, the same script can load a local Hugging Face model through `transformers` for text-only pseudo-summary generation:
-
-```bash
-py -3 scripts/generate_meld_pseudo_summaries.py --backend transformers --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --output_pt out/meld_train_pseudo_text.pt --model Qwen/Qwen3.5-9B --text_only --allow_text_only --device_map auto --torch_dtype float16 --trust_remote_code
-```
-
-For Qwen 3.5 local loading, use a recent `transformers` build as recommended by the official model card.
-
-The local `transformers` backend can also use representative frames instead of `--text_only` when your environment can load the multimodal Qwen model:
-
-```bash
-py -3 scripts/generate_meld_pseudo_summaries.py --backend transformers --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --output_pt out/meld_train_pseudo_mm.pt --model Qwen/Qwen3.5-9B --num_frames 1 --device_map auto --torch_dtype float16 --trust_remote_code
-```
-
-If you also pass the original MELD CSV, the script will align frame extraction to each utterance's `StartTime` and `EndTime` instead of sampling arbitrary representative frames:
-
-```bash
-py -3 scripts/generate_meld_pseudo_summaries.py --backend transformers --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --meld_csv data/MELD/MELD.Raw/train_sent_emo.csv --output_pt out/meld_train_pseudo_mm.pt --model Qwen/Qwen3.5-9B --num_frames 1 --device_map auto --torch_dtype float16 --trust_remote_code
-```
-
-To better match the original MELD fusion preprocessing, add `--face_crop` so the script reuses the same FaceEncoder face-mesh alignment and padded face crop logic before generation:
-
-```bash
-py -3 scripts/generate_meld_pseudo_summaries.py --backend transformers --input_pt out/meld_train.pt --videos_root data/MELD/MELD.Raw/train_splits --meld_csv data/MELD/MELD.Raw/train_sent_emo.csv --output_pt out/meld_train_pseudo_mm.pt --model Qwen/Qwen3.5-9B --num_frames 1 --face_crop --device_map auto --torch_dtype float16 --trust_remote_code
-```
-
-For quick debugging, add `--debug_face_dir out/meld_face_debug` to save `*_orig.jpg` and `*_crop.jpg` pairs (or a `*_crop_fail.txt` marker) for the sampled items.
-
-Notes:
-
-- `fusion_dataset.pt` and the MELD `.pt` files must include `target_text` entries. `src/Embedding.py` already writes that field when the source JSON contains summary text.
-- This is an experimental training path for research iteration. It does not replace the current FastAPI inference server yet.
-
-### 5A. Rich Multimodal Sequence Path
-
-If you want the decoder to cross-attend to richer multimodal sequences instead of one compressed token per modality, build the rich datasets first.
-
-Stage A rich MELD dataset:
-
-```bash
-py -3 scripts/build_rich_meld_dataset.py --input_pt out/meld_train_pseudo_mm.pt --videos_root data/MELD/MELD.Raw/train_splits --meld_csv data/MELD/MELD.Raw/train_sent_emo.csv --out_pt out/meld_train_rich.pt --num_frames 1 --max_face_tokens 96 --max_audio_tokens 128 --max_text_tokens 48 --debug_face_dir out/meld_face_debug
-py -3 scripts/build_rich_meld_dataset.py --input_pt out/meld_dev_pseudo_mm.pt --videos_root data/MELD/MELD.Raw/dev_splits --meld_csv data/MELD/MELD.Raw/dev_sent_emo.csv --out_pt out/meld_dev_rich.pt --num_frames 1 --max_face_tokens 96 --max_audio_tokens 128 --max_text_tokens 48
-```
-
-Stage B rich Korean dataset:
-
-```bash
-py -3 scripts/build_rich_ko_dataset.py --out_pt out/fusion_dataset_rich.pt --max_face_tokens 96 --max_audio_tokens 128 --max_text_tokens 48
-```
-
-Then train the richer sequence-level fusion model:
-
-```bash
-py -3 scripts/train_rich_fusion_seq2seq_two_stage.py --stage_a_train_pt out/meld_train_rich.pt --stage_a_val_pt out/meld_dev_rich.pt --stage_b_train_pt out/fusion_dataset_rich.pt
-```
-
-This richer path keeps:
-
-- face patch token sequences
-- audio frame token sequences
-- text token sequences
-- auxiliary face emotion, speaker, and prosody summary tokens
-
-The legacy `src/train_fusion_seq2seq.py` path is still available for comparison, but the new rich path is the one to use when you want the decoder to see more than one compressed modality token.
-
-### 5B. Qwen2.5-Omni Path
-
-If you want to move away from the custom fusion decoder and fine-tune an end-to-end multimodal open model instead, this branch also includes a Qwen2.5-Omni path.
-
-Install the separate Qwen environment dependencies instead of changing the stable training environment:
+Qwen2.5-Omni path:
 
 ```bash
 pip install -r requirements-qwen-omni.txt
 ```
 
-Export MELD into Qwen2.5-Omni JSONL:
+### 2. Run The Recommended Server
+
+Recommended production-ish demo setup:
 
 ```bash
-python scripts/export_qwen_omni_meld_dataset.py --input_pt out/meld_train_pseudo_mm.pt --videos_root data/MELD/MELD.Raw/train_splits --meld_csv data/MELD/MELD.Raw/train_sent_emo.csv --out_jsonl out/qwen_omni_meld_train.jsonl --media_root out/qwen_omni_meld_train_media
-python scripts/export_qwen_omni_meld_dataset.py --input_pt out/meld_dev_pseudo_mm.pt --videos_root data/MELD/MELD.Raw/dev_splits --meld_csv data/MELD/MELD.Raw/dev_sent_emo.csv --out_jsonl out/qwen_omni_meld_dev.jsonl --media_root out/qwen_omni_meld_dev_media
+export OPENAI_API_KEY=YOUR_KEY
+export MUTON_QWEN_ADAPTER=/home/jaesang02/MUTON_cpy/out/qwen_omni_lora/ko_stage
+export MUTON_QWEN_STT_BACKEND=openai
+CUDA_VISIBLE_DEVICES=1 python scripts/run_qwen_server.py
 ```
 
-Export the Korean dataset into Qwen2.5-Omni JSONL:
+This gives:
+
+- STT: `whisper-1` API with utterance-level filtering
+- summary: `Qwen2.5-Omni + ko_stage LoRA`
+- face-only top-bar emotion: 6-class mapped visual label
+
+### 3. Expose The Server
 
 ```bash
-python scripts/export_qwen_omni_ko_dataset.py --json_path preprocessing/multi_text.json --face_root data/Korea/face_crops --audio_root data/Korea/audio --out_jsonl out/qwen_omni_ko.jsonl
+cloudflared tunnel --url http://127.0.0.1:5000
 ```
 
-Run a local inference sanity check:
+### 4. Publish The Current Tunnel URL For Android
 
-```bash
-python scripts/run_qwen_omni_inference.py --image data/Korea/face_crops/001/example.jpg --audio data/Korea/audio/001/example.wav --script "어렵단 말이야." --model_name Qwen/Qwen2.5-Omni-7B
-```
-
-Then LoRA fine-tune the Thinker model:
-
-```bash
-python scripts/train_qwen_omni_lora_two_stage.py --model_name Qwen/Qwen2.5-Omni-7B --stage_a_train_jsonl out/qwen_omni_meld_train.jsonl --stage_a_val_jsonl out/qwen_omni_meld_dev.jsonl --stage_b_train_jsonl out/qwen_omni_ko.jsonl --load_in_4bit --gradient_checkpointing
-```
-
-This path uses:
-
-- face crop images or MELD-derived face crops
-- raw audio wav files
-- original script text
-- one-stage multimodal chat supervision for Qwen2.5-Omni Thinker
-
-It is a different research direction from the fusion encoder experiments and is meant for branch-level comparison, not as a drop-in replacement for the current FastAPI server.
-
-### 6. Run the FastAPI server
-
-```bash
-py -3 scripts/run_server.py
-```
-
-## Remote URL Workflow For Android
-
-If you cannot keep a fixed public server address and must use a temporary tunnel URL, keep the app pointed at this GitHub raw file instead of hardcoding the tunnel directly:
-
-```text
-https://raw.githubusercontent.com/Ai-pre/MUTON_cpy/server/backend_url.json
-```
-
-Update the JSON whenever the tunnel URL changes:
+Use a separate `server` worktree/repo checkout and update:
 
 ```bash
 python scripts/update_backend_url.py https://xxxxx.trycloudflare.com
 git add backend_url.json
 git commit -m "Update backend URL"
-git push origin server
+git push origin HEAD:server
 ```
 
-The Android app should fetch `backend_url.json`, read the `base_url` field, and use that value as its backend base URL.
+Android should read:
+
+```text
+https://raw.githubusercontent.com/Ai-pre/MUTON/refs/heads/server/backend_url.json
+```
+
+## STT Backends
+
+`src/server_qwen.py` supports three STT modes through `MUTON_QWEN_STT_BACKEND`.
+
+- `openai`: recommended for the current app demo; restores the earlier Whisper API path with logprob/no-speech filtering
+- `whisper`: local Korean Whisper fallback using `ghost613/whisper-large-v3-turbo-korean`
+- `qwen`: Qwen audio transcription path for experiments only
+
+Relevant environment variables:
+
+- `OPENAI_API_KEY`
+- `MUTON_QWEN_STT_BACKEND`
+- `MUTON_STT_MODEL_NAME`
+- `MUTON_STT_MIN_TRANSCRIPT_CONFIDENCE`
+- `MUTON_STT_SUMMARY_MIN_CONFIDENCE`
+
+## Qwen2.5-Omni Training Flow
+
+### Export JSONL
+
+```bash
+python scripts/export_qwen_omni_meld_dataset.py \
+  --input_pt out/meld_train_pseudo_mm.pt \
+  --videos_root data/MELD/MELD.Raw/train_splits \
+  --meld_csv data/MELD/MELD.Raw/train_sent_emo.csv \
+  --out_jsonl out/qwen_omni_meld_train.jsonl \
+  --media_root out/qwen_omni_meld_train_media
+
+python scripts/export_qwen_omni_meld_dataset.py \
+  --input_pt out/meld_dev_pseudo_mm.pt \
+  --videos_root data/MELD/MELD.Raw/dev_splits \
+  --meld_csv data/MELD/MELD.Raw/dev_sent_emo.csv \
+  --out_jsonl out/qwen_omni_meld_dev.jsonl \
+  --media_root out/qwen_omni_meld_dev_media
+
+python scripts/export_qwen_omni_ko_dataset.py \
+  --json_path preprocessing/multi_text.json \
+  --face_root data/Korea/face_crops \
+  --audio_root data/Korea/audio \
+  --out_jsonl out/qwen_omni_ko.jsonl
+```
+
+### Two-Stage LoRA
+
+```bash
+CUDA_VISIBLE_DEVICES=1 python scripts/train_qwen_omni_lora_two_stage.py \
+  --model_name Qwen/Qwen2.5-Omni-7B \
+  --stage_a_train_jsonl out/qwen_omni_meld_train.jsonl \
+  --stage_a_val_jsonl out/qwen_omni_meld_dev.jsonl \
+  --stage_b_train_jsonl out/qwen_omni_ko.jsonl \
+  --load_in_4bit \
+  --gradient_checkpointing
+```
 
 ## Notes
 
-- This is research code, not a fully packaged production service.
-- Some scripts assume prepared datasets and checkpoints already exist.
-- The recent cleanup focused on making local development less brittle by removing machine-specific absolute paths from the main workflows.
-
-## Recent Cleanup
-
-- Added a shared `muton` helper package for config/import compatibility
-- Replaced main `/home/...` paths with environment-based paths
-- Added stable script entrypoints under `scripts/`
-- Fixed fusion training utilities to match the current model layout
-- Restored a readable README with an updated workflow
+- `out/` is treated as generated artifact space and should not be committed.
+- The Android app path is now documented against `MUTON`, not `MUTON_cpy`.
+- Legacy fusion and seq2seq experiment scripts are kept for comparison, but they are not the recommended runtime path for this branch.
