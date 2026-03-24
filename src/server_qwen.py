@@ -371,6 +371,15 @@ async def process_audio_chunk(audio: UploadFile = File(...)) -> dict[str, Any]:
             text = transcript
             latest_transcript = text
             commit_utterance_snapshot(text, utterance_waveform, stt_confidence)
+    elif QWEN_STT_BACKEND == "openai":
+        transcript, utterance_waveform, stt_confidence = _audio_encoder.consume_buffered_speech_openai(pcm)
+        if utterance_waveform is not None:
+            latest_audio_waveform = utterance_waveform
+            latest_audio_timestamp = time.time()
+        if transcript:
+            text = transcript
+            latest_transcript = text
+            commit_utterance_snapshot(text, utterance_waveform, stt_confidence)
     else:
         transcript, utterance_waveform, stt_confidence = _audio_encoder.consume_buffered_speech(pcm)
         if utterance_waveform is not None:

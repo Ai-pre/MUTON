@@ -14,6 +14,10 @@ import numpy as np
 import torch
 import cv2
 import mediapipe as mp
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None
 
 from transformers import (
     AutoTokenizer,
@@ -234,6 +238,8 @@ class AudioEncoder:
             "MUTON_STT_PROMPT",
             "Transcribe Korean speech faithfully as subtitles. Output only the spoken utterance.",
         ).strip()
+        self.openai_stt_model = os.environ.get("MUTON_OPENAI_STT_MODEL", "whisper-1").strip()
+        self.openai_stt_prompt = os.environ.get("MUTON_OPENAI_STT_PROMPT", "대화 내용입니다. 핵심 내용만 적으세요.").strip()
         self.stt_max_new_tokens = int(os.environ.get("MUTON_STT_MAX_NEW_TOKENS", "64").strip())
         self.stt_vad_threshold = float(os.environ.get("MUTON_STT_VAD_THRESHOLD", "0.85").strip())
         self.min_energy_threshold = int(os.environ.get("MUTON_STT_MIN_CHUNK_ENERGY", "700").strip())
@@ -308,9 +314,17 @@ class AudioEncoder:
 
         self.speech_threshold = self.stt_vad_threshold
         self.silence_chunks = 0
+        api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+        self.openai_client = None
+        if api_key and OpenAI is not None:
+            try:
+                self.openai_client = OpenAI(api_key=api_key)
+            except Exception:
+                self.openai_client = None
 
         self.noise_words = [
             "MBC 뉴스",
+            "MBC뉴스",
             "시청해주셔서 감사합니다",
             "구독과 좋아요",
             "알림 설정",
@@ -320,15 +334,146 @@ class AudioEncoder:
             "유료광고",
             "기자",
             "보도국",
+            "투데이 별별영상",
+            "자막뉴스",
+            "포함하고 있습니다",
+            "주식시황",
+            "오늘의 주식",
+            "뉴스 스토리",
+            "이덕영",
         ]
-        self.filler_words = ["음", "어", "아", "그", "저", "으음"]
+        self.filler_words = ["음...", "음", "어...", "어", "그...", "그", "아...", "아", "저...", "저", "에...", "에", "으음"]
 
         print("Loading WavLM-base-plus...")
         self.wavlm = WavLMModel.from_pretrained("microsoft/wavlm-base-plus").to(self.device).eval()
 
     def stt_with_api(self, raw_bytes: bytes) -> Optional[str]:
-        transcript, _, _ = self.consume_buffered_speech(raw_bytes)
+        transcript, _, _ = self.consume_buffered_speech_openai(raw_bytes)
         return transcript
+
+    def _prepare_buffered_utterance(self, raw_bytes: bytes) -> tuple[Optional[np.ndarray], float]:
+        audio_int16 = np.frombuffer(raw_bytes, dtype=np.int16)
+        if len(audio_int16) > 0:
+            chunk_energy = np.sqrt(np.mean(audio_int16.astype(np.float32) ** 2))
+        else:
+            chunk_energy = 0.0
+
+        if len(self.audio_buffer) == 0 and chunk_energy < self.min_energy_threshold:
+            return None, 0.0
+
+        self.audio_buffer.extend(raw_bytes)
+
+        is_speech = False
+        if chunk_energy > self.min_energy_threshold:
+            audio_float32 = audio_int16.astype(np.float32) / 32768.0
+            window_size = 512
+            for i in range(0, len(audio_float32), window_size):
+                chunk = audio_float32[i : i + window_size]
+                if len(chunk) < window_size:
+                    break
+                tensor_chunk = torch.from_numpy(chunk).to(self.device).unsqueeze(0)
+                speech_prob = self.vad_model(tensor_chunk, 16000).item()
+                if speech_prob > self.speech_threshold:
+                    is_speech = True
+                    break
+
+        if is_speech:
+            self.silence_chunks = 0
+        else:
+            self.silence_chunks += 1
+
+        should_send = False
+        if len(self.audio_buffer) > self.min_buffer_bytes and self.silence_chunks > self.max_silence_chunks:
+            should_send = True
+        elif len(self.audio_buffer) > self.max_buffer_bytes:
+            should_send = True
+            print("Detected: force send (buffer full)")
+
+        if not should_send:
+            return None, 0.0
+
+        if len(self.audio_buffer) < self.min_duration_bytes:
+            print(f"Discarded because the chunk is too short (size={len(self.audio_buffer)})")
+            self.audio_buffer = bytearray()
+            self.silence_chunks = 0
+            return None, 0.0
+
+        full_buffer_int16 = np.frombuffer(self.audio_buffer, dtype=np.int16)
+        full_energy = np.sqrt(np.mean(full_buffer_int16.astype(np.float32) ** 2))
+        if full_energy < self.min_full_energy:
+            print(f"Discarded because full energy is too low (energy={int(full_energy)})")
+            self.audio_buffer = bytearray()
+            self.silence_chunks = 0
+            return None, 0.0
+
+        utterance_bytes = bytes(self.audio_buffer)
+        waveform = np.frombuffer(utterance_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+        self.audio_buffer = bytearray()
+        self.silence_chunks = 0
+        return waveform, float(full_energy)
+
+    def _transcribe_with_openai(self, waveform: np.ndarray) -> tuple[Optional[str], float]:
+        if self.openai_client is None or waveform.size == 0:
+            return None, 0.0
+
+        wav_io = io.BytesIO()
+        wav_io.name = "speech.wav"
+        with wave.open(wav_io, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(self.sample_rate)
+            pcm = np.clip(waveform * 32768.0, -32768, 32767).astype(np.int16)
+            wav_file.writeframes(pcm.tobytes())
+        wav_io.seek(0)
+
+        try:
+            transcript = self.openai_client.audio.transcriptions.create(
+                model=self.openai_stt_model,
+                file=wav_io,
+                language=self.stt_language,
+                response_format="verbose_json",
+                prompt=self.openai_stt_prompt,
+                temperature=0.0,
+            )
+        except Exception as e:
+            print(f"OpenAI API Error: {e}")
+            return None, 0.0
+
+        raw_text = (
+            getattr(transcript, "text", None)
+            or (transcript.get("text") if isinstance(transcript, dict) else "")
+            or ""
+        ).strip()
+
+        segments = getattr(transcript, "segments", None)
+        if segments is None and isinstance(transcript, dict):
+            segments = transcript.get("segments", None)
+
+        avg_logprob = None
+        no_speech_prob = None
+        if segments:
+            seg0 = segments[0]
+            if isinstance(seg0, dict):
+                avg_logprob = seg0.get("avg_logprob")
+                no_speech_prob = seg0.get("no_speech_prob")
+            else:
+                avg_logprob = getattr(seg0, "avg_logprob", None)
+                no_speech_prob = getattr(seg0, "no_speech_prob", None)
+
+        if avg_logprob is not None and avg_logprob < -1.0:
+            print(f"Discarded because avg_logprob is too low ({avg_logprob:.2f}): {raw_text}")
+            return None, 0.0
+        if no_speech_prob is not None and no_speech_prob > 0.8:
+            print(f"Discarded because no_speech_prob is too high ({no_speech_prob:.2f}): {raw_text}")
+            return None, 0.0
+
+        confidence = 0.5
+        if avg_logprob is not None:
+            confidence = 0.5 * float(np.clip((avg_logprob + 1.5) / 1.5, 0.0, 1.0)) + 0.5 * confidence
+        if no_speech_prob is not None:
+            confidence = 0.5 * confidence + 0.5 * (1.0 - float(no_speech_prob))
+
+        return raw_text or None, float(np.clip(confidence, 0.0, 1.0))
 
     def _estimate_transcript_confidence(
         self,
@@ -445,65 +590,9 @@ class AudioEncoder:
         return str(result).strip()
 
     def consume_buffered_speech(self, raw_bytes: bytes) -> tuple[Optional[str], Optional[np.ndarray], float]:
-        audio_int16 = np.frombuffer(raw_bytes, dtype=np.int16)
-        if len(audio_int16) > 0:
-            chunk_energy = np.sqrt(np.mean(audio_int16.astype(np.float32) ** 2))
-        else:
-            chunk_energy = 0.0
-
-        if len(self.audio_buffer) == 0 and chunk_energy < self.min_energy_threshold:
+        waveform, full_energy = self._prepare_buffered_utterance(raw_bytes)
+        if waveform is None:
             return None, None, 0.0
-
-        self.audio_buffer.extend(raw_bytes)
-
-        is_speech = False
-        if chunk_energy > self.min_energy_threshold:
-            audio_float32 = audio_int16.astype(np.float32) / 32768.0
-            window_size = 512
-            for i in range(0, len(audio_float32), window_size):
-                chunk = audio_float32[i : i + window_size]
-                if len(chunk) < window_size:
-                    break
-                tensor_chunk = torch.from_numpy(chunk).to(self.device).unsqueeze(0)
-                speech_prob = self.vad_model(tensor_chunk, 16000).item()
-                if speech_prob > self.speech_threshold:
-                    is_speech = True
-                    break
-
-        if is_speech:
-            self.silence_chunks = 0
-        else:
-            self.silence_chunks += 1
-
-        should_send = False
-
-        if len(self.audio_buffer) > self.min_buffer_bytes and self.silence_chunks > self.max_silence_chunks:
-            should_send = True
-        elif len(self.audio_buffer) > self.max_buffer_bytes:
-            should_send = True
-            print("Detected: force send (buffer full)")
-
-        if not should_send:
-            return None, None, 0.0
-
-        if len(self.audio_buffer) < self.min_duration_bytes:
-            print(f"Discarded because the chunk is too short (size={len(self.audio_buffer)})")
-            self.audio_buffer = bytearray()
-            self.silence_chunks = 0
-            return None, None, 0.0
-
-        full_buffer_int16 = np.frombuffer(self.audio_buffer, dtype=np.int16)
-        full_energy = np.sqrt(np.mean(full_buffer_int16.astype(np.float32) ** 2))
-        if full_energy < self.min_full_energy:
-            print(f"Discarded because full energy is too low (energy={int(full_energy)})")
-            self.audio_buffer = bytearray()
-            self.silence_chunks = 0
-            return None, None, 0.0
-
-        utterance_bytes = bytes(self.audio_buffer)
-        waveform = np.frombuffer(utterance_bytes, dtype=np.int16).astype(np.float32) / 32768.0
-        self.audio_buffer = bytearray()
-        self.silence_chunks = 0
 
         raw_text = self._transcribe_waveform(waveform)
         filtered_text = self._filter_transcript(raw_text or "")
@@ -513,6 +602,23 @@ class AudioEncoder:
             return None, waveform, confidence
         if filtered_text:
             print(f"Local Whisper transcript: {filtered_text} (conf={confidence:.2f})")
+        return filtered_text, waveform, confidence
+
+    def consume_buffered_speech_openai(self, raw_bytes: bytes) -> tuple[Optional[str], Optional[np.ndarray], float]:
+        waveform, full_energy = self._prepare_buffered_utterance(raw_bytes)
+        if waveform is None:
+            return None, None, 0.0
+
+        raw_text, api_confidence = self._transcribe_with_openai(waveform)
+        filtered_text = self._filter_transcript(raw_text or "")
+        heuristic_confidence = self._estimate_transcript_confidence(filtered_text or "", waveform, float(full_energy))
+        confidence = max(api_confidence, heuristic_confidence)
+
+        if filtered_text and confidence < self.min_transcript_confidence:
+            print(f"Discarded because OpenAI transcript confidence is too low (conf={confidence:.2f}, text={filtered_text})")
+            return None, waveform, confidence
+        if filtered_text:
+            print(f"OpenAI Whisper transcript: {filtered_text} (conf={confidence:.2f})")
         return filtered_text, waveform, confidence
 
     # WavLM feature extractor (?먮낯 洹몃?濡? :contentReference[oaicite:10]{index=10}
