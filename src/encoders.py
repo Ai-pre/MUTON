@@ -234,6 +234,7 @@ class AudioEncoder:
             "MUTON_STT_PROMPT",
             "Transcribe Korean speech faithfully as subtitles. Output only the spoken utterance.",
         ).strip()
+        self.stt_max_new_tokens = int(os.environ.get("MUTON_STT_MAX_NEW_TOKENS", "64").strip())
         stt_dtype_name = os.environ.get(
             "MUTON_STT_TORCH_DTYPE",
             "float16" if self.stt_device.startswith("cuda") else "float32",
@@ -252,6 +253,12 @@ class AudioEncoder:
             low_cpu_mem_usage=True,
             use_safetensors=True,
         ).to(self.stt_device).eval()
+        # Older Whisper checkpoints often carry max_length=20 in generation config,
+        # which triggers noisy warnings when we drive decoding with max_new_tokens.
+        try:
+            self.stt_model.generation_config.max_length = None
+        except Exception:
+            pass
         try:
             self.stt_processor.tokenizer.set_prefix_tokens(
                 language=self.stt_language,
@@ -322,6 +329,44 @@ class AudioEncoder:
 
         filtered_text = filtered_text.strip()
         filtered_text = re.sub(r"^[,\.]+", "", filtered_text).strip()
+        filtered_text = re.sub(r"\s+", " ", filtered_text)
+
+        repeated_char_match = re.fullmatch(r"(.{1,2})\1{2,}", filtered_text)
+        if repeated_char_match:
+            return None
+
+        raw_tokens = filtered_text.split()
+        if raw_tokens:
+            longest_repeat = 1
+            current_repeat = 1
+            for prev_token, token in zip(raw_tokens, raw_tokens[1:]):
+                if token == prev_token:
+                    current_repeat += 1
+                    longest_repeat = max(longest_repeat, current_repeat)
+                else:
+                    current_repeat = 1
+            if longest_repeat >= 4:
+                return None
+
+        tokens = raw_tokens
+        if tokens:
+            collapsed_tokens: list[str] = []
+            prev_token = None
+            for token in tokens:
+                if token == prev_token:
+                    continue
+                collapsed_tokens.append(token)
+                prev_token = token
+            tokens = collapsed_tokens
+            filtered_text = " ".join(tokens)
+
+        if tokens:
+            max_count = max(tokens.count(token) for token in set(tokens))
+            unique_ratio = len(set(tokens)) / max(len(tokens), 1)
+            if len(tokens) >= 4 and max_count / len(tokens) >= 0.6:
+                return None
+            if len(tokens) >= 6 and unique_ratio < 0.4:
+                return None
 
         if any(x in raw_text for x in ["유료광고", "구독", "기자", "뉴스"]):
             return None
@@ -337,6 +382,7 @@ class AudioEncoder:
         try:
             result = self.stt_pipe(
                 {"array": waveform.astype(np.float32, copy=False), "sampling_rate": self.sample_rate},
+                max_new_tokens=self.stt_max_new_tokens,
                 return_timestamps=False,
             )
         except Exception as e:

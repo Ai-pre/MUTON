@@ -150,6 +150,12 @@ latest_face_timestamp = 0.0
 latest_audio_waveform: np.ndarray | None = None
 latest_audio_timestamp = 0.0
 latest_transcript = ""
+committed_face_image: Image.Image | None = None
+committed_audio_waveform: np.ndarray | None = None
+committed_transcript = ""
+committed_timestamp = 0.0
+last_summary_key: tuple[float, str] | None = None
+last_summary_text = ""
 
 
 def _generate_from_messages(
@@ -213,11 +219,21 @@ def get_cached_face_image(jpeg_bytes: bytes) -> tuple[Image.Image | None, str]:
     return crop_rgb, "face_crop"
 
 
-def generate_qwen_summary(script: str) -> str:
-    face_image = latest_face_image
-    audio = latest_audio_waveform
+def generate_qwen_summary(script: str, face_image: Image.Image | None, audio: np.ndarray | None) -> str:
     messages = build_runtime_messages(face_image, audio, script)
     return _generate_from_messages(messages, max_new_tokens=QWEN_MAX_NEW_TOKENS, use_adapter=True)
+
+
+def commit_utterance_snapshot(transcript: str, waveform: np.ndarray | None) -> None:
+    global committed_face_image, committed_audio_waveform, committed_transcript, committed_timestamp
+    global last_summary_key, last_summary_text
+
+    committed_timestamp = time.time()
+    committed_transcript = transcript.strip()
+    committed_audio_waveform = None if waveform is None else np.array(waveform, copy=True)
+    committed_face_image = latest_face_image.copy() if latest_face_image is not None else None
+    last_summary_key = None
+    last_summary_text = ""
 
 
 def generate_qwen_transcript(audio: np.ndarray) -> str:
@@ -342,6 +358,7 @@ async def process_audio_chunk(audio: UploadFile = File(...)) -> dict[str, Any]:
         if transcript:
             text = transcript
             latest_transcript = text
+            commit_utterance_snapshot(text, utterance_waveform)
     else:
         transcript, utterance_waveform = _audio_encoder.consume_buffered_speech(pcm)
         if utterance_waveform is not None:
@@ -350,6 +367,7 @@ async def process_audio_chunk(audio: UploadFile = File(...)) -> dict[str, Any]:
         if transcript:
             text = transcript
             latest_transcript = text
+            commit_utterance_snapshot(text, utterance_waveform)
 
     return {
         "text": text,
@@ -368,20 +386,24 @@ async def get_fusion_analysis(
     content: str = Form("[]"),
     speaker: str = Form("[]"),
 ) -> dict[str, Any]:
+    global last_summary_key, last_summary_text
     del prosody, content, speaker
 
     now = time.time()
-    if latest_face_image is None or (now - latest_face_timestamp) > CACHE_TTL_SEC:
+    if committed_face_image is None or (now - committed_timestamp) > CACHE_TTL_SEC:
         return {"fusion_emotion": "No Visual Input", "summary": ""}
 
-    script = (text or "").strip() or latest_transcript.strip()
+    script = (text or "").strip() or committed_transcript.strip()
     if not script:
         return {"fusion_emotion": "", "summary": ""}
 
-    if latest_audio_waveform is None or (now - latest_audio_timestamp) > CACHE_TTL_SEC:
-        summary = generate_qwen_summary(script)
+    summary_key = (committed_timestamp, script)
+    if last_summary_key == summary_key and last_summary_text:
+        summary = last_summary_text
     else:
-        summary = generate_qwen_summary(script)
+        summary = generate_qwen_summary(script, committed_face_image, committed_audio_waveform)
+        last_summary_key = summary_key
+        last_summary_text = summary
 
     return {
         "fusion_emotion": "",
