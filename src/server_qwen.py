@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+from contextlib import nullcontext
 import os
 import sys
 import time
@@ -36,7 +36,15 @@ QWEN_MODEL_NAME = env_str("MUTON_QWEN_MODEL_NAME", "Qwen/Qwen2.5-Omni-7B")
 QWEN_ADAPTER = str(env_path("MUTON_QWEN_ADAPTER", "out/qwen_omni_lora/ko_stage"))
 QWEN_MAX_NEW_TOKENS = int(env_str("MUTON_QWEN_MAX_NEW_TOKENS", "64"))
 QWEN_DTYPE = env_str("MUTON_QWEN_TORCH_DTYPE", "bfloat16")
+QWEN_STT_BACKEND = env_str("MUTON_QWEN_STT_BACKEND", "whisper").lower()
+QWEN_STT_MAX_NEW_TOKENS = int(env_str("MUTON_QWEN_STT_MAX_NEW_TOKENS", "128"))
+QWEN_STT_USE_ADAPTER = env_str("MUTON_QWEN_STT_USE_ADAPTER", "false").lower() == "true"
 CACHE_TTL_SEC = float(env_str("MUTON_CACHE_TTL_SEC", "3.0"))
+STT_SUMMARY_MIN_CONFIDENCE = float(env_str("MUTON_STT_SUMMARY_MIN_CONFIDENCE", "0.55"))
+QWEN_STT_INSTRUCTION = env_str(
+    "MUTON_QWEN_STT_PROMPT",
+    "음성 내용을 한국어 자막용 문장으로 정확히 받아써라. 설명하지 말고 전사 결과만 출력해라.",
+)
 
 
 def parse_torch_dtype(name: str) -> torch.dtype:
@@ -48,6 +56,19 @@ def parse_torch_dtype(name: str) -> torch.dtype:
     if name not in mapping:
         raise ValueError(f"Unsupported torch dtype: {name}")
     return mapping[name]
+
+
+def map_visual_emotion_to_ko6(emotion: str) -> str:
+    mapping = {
+        "Angry": "Angry",
+        "Disgust": "Dislike",
+        "Happy": "Happy",
+        "Neutral": "Neutral",
+        "Sad": "Sad",
+        "Surprise": "Surprise",
+        "Fear": "Unknown",
+    }
+    return mapping.get(emotion, emotion or "Unknown")
 
 
 def build_runtime_messages(
@@ -72,6 +93,22 @@ def build_runtime_messages(
         {
             "role": "user",
             "content": user_content,
+        },
+    ]
+
+
+def build_stt_messages(audio: np.ndarray) -> list[dict[str, Any]]:
+    return [
+        {
+            "role": "system",
+            "content": [{"type": "text", "text": QWEN_DEFAULT_SYSTEM_PROMPT}],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "audio", "audio": audio.astype(np.float32, copy=False)},
+                {"type": "text", "text": QWEN_STT_INSTRUCTION},
+            ],
         },
     ]
 
@@ -114,26 +151,21 @@ latest_face_timestamp = 0.0
 latest_audio_waveform: np.ndarray | None = None
 latest_audio_timestamp = 0.0
 latest_transcript = ""
+committed_face_image: Image.Image | None = None
+committed_audio_waveform: np.ndarray | None = None
+committed_transcript = ""
+committed_transcript_confidence = 0.0
+committed_timestamp = 0.0
+last_summary_key: tuple[float, str] | None = None
+last_summary_text = ""
 
 
-def get_cached_face_image(jpeg_bytes: bytes) -> tuple[Image.Image | None, str]:
-    frame_bgr = _face_encoder.decode_jpeg(jpeg_bytes)
-    if frame_bgr is None:
-        return None, "decode_failed"
-
-    crop_bgr = crop_face_bgr(_face_encoder, frame_bgr)
-    if crop_bgr is None:
-        rgb = Image.fromarray(frame_bgr[:, :, ::-1]).convert("RGB")
-        return rgb, "full_frame"
-
-    crop_rgb = Image.fromarray(crop_bgr[:, :, ::-1]).convert("RGB")
-    return crop_rgb, "face_crop"
-
-
-def generate_qwen_summary(script: str) -> str:
-    face_image = latest_face_image
-    audio = latest_audio_waveform
-    messages = build_runtime_messages(face_image, audio, script)
+def _generate_from_messages(
+    messages: list[dict[str, Any]],
+    *,
+    max_new_tokens: int,
+    use_adapter: bool,
+) -> str:
     inputs = _processor.apply_chat_template(
         [messages],
         tokenize=True,
@@ -144,16 +176,21 @@ def generate_qwen_summary(script: str) -> str:
     )
     inputs = {key: value.to(_model.device) if torch.is_tensor(value) else value for key, value in dict(inputs).items()}
 
-    with torch.no_grad():
-        generated = _model.generate(
-            **inputs,
-            max_new_tokens=QWEN_MAX_NEW_TOKENS,
-            do_sample=False,
-            repetition_penalty=1.1,
-            no_repeat_ngram_size=3,
-            eos_token_id=_processor.tokenizer.eos_token_id,
-            pad_token_id=_processor.tokenizer.pad_token_id or _processor.tokenizer.eos_token_id,
-        )
+    context = nullcontext()
+    if not use_adapter and hasattr(_model, "disable_adapter"):
+        context = _model.disable_adapter()
+
+    with context:
+        with torch.no_grad():
+            generated = _model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                repetition_penalty=1.1,
+                no_repeat_ngram_size=3,
+                eos_token_id=_processor.tokenizer.eos_token_id,
+                pad_token_id=_processor.tokenizer.pad_token_id or _processor.tokenizer.eos_token_id,
+            )
 
     prompt_len = inputs["input_ids"].shape[1]
     generated_text = _processor.batch_decode(generated[:, prompt_len:], skip_special_tokens=True)[0]
@@ -170,6 +207,124 @@ def generate_qwen_summary(script: str) -> str:
     return generated_text.strip()
 
 
+def get_cached_face_image(jpeg_bytes: bytes) -> tuple[Image.Image | None, str]:
+    frame_bgr = _face_encoder.decode_jpeg(jpeg_bytes)
+    if frame_bgr is None:
+        return None, "decode_failed"
+
+    crop_bgr = crop_face_bgr(_face_encoder, frame_bgr)
+    if crop_bgr is None:
+        rgb = Image.fromarray(frame_bgr[:, :, ::-1]).convert("RGB")
+        return rgb, "full_frame"
+
+    crop_rgb = Image.fromarray(crop_bgr[:, :, ::-1]).convert("RGB")
+    return crop_rgb, "face_crop"
+
+
+def generate_qwen_summary(script: str, face_image: Image.Image | None, audio: np.ndarray | None) -> str:
+    messages = build_runtime_messages(face_image, audio, script)
+    return _generate_from_messages(messages, max_new_tokens=QWEN_MAX_NEW_TOKENS, use_adapter=True)
+
+
+def commit_utterance_snapshot(transcript: str, waveform: np.ndarray | None, confidence: float) -> None:
+    global committed_face_image, committed_audio_waveform, committed_transcript, committed_transcript_confidence
+    global committed_timestamp
+    global last_summary_key, last_summary_text
+
+    committed_timestamp = time.time()
+    committed_transcript = transcript.strip()
+    committed_transcript_confidence = float(confidence)
+    committed_audio_waveform = None if waveform is None else np.array(waveform, copy=True)
+    committed_face_image = latest_face_image.copy() if latest_face_image is not None else None
+    last_summary_key = None
+    last_summary_text = ""
+
+
+def generate_qwen_transcript(audio: np.ndarray) -> str:
+    messages = build_stt_messages(audio)
+    return _generate_from_messages(
+        messages,
+        max_new_tokens=QWEN_STT_MAX_NEW_TOKENS,
+        use_adapter=QWEN_STT_USE_ADAPTER,
+    )
+
+
+def consume_audio_buffer_for_qwen_stt(raw_bytes: bytes) -> tuple[str | None, np.ndarray | None, float]:
+    audio_int16 = np.frombuffer(raw_bytes, dtype=np.int16)
+    if len(audio_int16) > 0:
+        chunk_energy = np.sqrt(np.mean(audio_int16.astype(np.float32) ** 2))
+    else:
+        chunk_energy = 0.0
+
+    if len(_audio_encoder.audio_buffer) == 0 and chunk_energy < _audio_encoder.min_energy_threshold:
+        return None, None, 0.0
+
+    _audio_encoder.audio_buffer.extend(raw_bytes)
+
+    is_speech = False
+    if chunk_energy > _audio_encoder.min_energy_threshold:
+        audio_float32 = audio_int16.astype(np.float32) / 32768.0
+        window_size = 512
+        for i in range(0, len(audio_float32), window_size):
+            chunk = audio_float32[i : i + window_size]
+            if len(chunk) < window_size:
+                break
+            tensor_chunk = torch.from_numpy(chunk).to(_audio_encoder.device).unsqueeze(0)
+            speech_prob = _audio_encoder.vad_model(tensor_chunk, 16000).item()
+            if speech_prob > _audio_encoder.speech_threshold:
+                is_speech = True
+                break
+
+    if is_speech:
+        _audio_encoder.silence_chunks = 0
+    else:
+        _audio_encoder.silence_chunks += 1
+
+    should_send = False
+    if (
+        len(_audio_encoder.audio_buffer) > _audio_encoder.min_buffer_bytes
+        and _audio_encoder.silence_chunks > _audio_encoder.max_silence_chunks
+    ):
+        should_send = True
+    elif len(_audio_encoder.audio_buffer) > _audio_encoder.max_buffer_bytes:
+        should_send = True
+
+    if not should_send:
+        return None, None, 0.0
+
+    if len(_audio_encoder.audio_buffer) < _audio_encoder.min_duration_bytes:
+        _audio_encoder.audio_buffer = bytearray()
+        _audio_encoder.silence_chunks = 0
+        return None, None, 0.0
+
+    full_buffer = bytes(_audio_encoder.audio_buffer)
+    full_buffer_int16 = np.frombuffer(full_buffer, dtype=np.int16)
+    full_energy = np.sqrt(np.mean(full_buffer_int16.astype(np.float32) ** 2)) if len(full_buffer_int16) > 0 else 0.0
+    if full_energy < _audio_encoder.min_full_energy:
+        _audio_encoder.audio_buffer = bytearray()
+        _audio_encoder.silence_chunks = 0
+        return None, None, 0.0
+
+    waveform = pcm_bytes_to_waveform(full_buffer)
+    _audio_encoder.audio_buffer = bytearray()
+    _audio_encoder.silence_chunks = 0
+
+    try:
+        transcript = generate_qwen_transcript(waveform)
+    except Exception as exc:
+        print(f"Qwen STT error: {exc}")
+        return None, waveform, 0.0
+
+    transcript = transcript.strip()
+    confidence = _audio_encoder._estimate_transcript_confidence(transcript, waveform, float(full_energy))
+    if transcript and confidence < _audio_encoder.min_transcript_confidence:
+        print(f"Discarded because Qwen transcript confidence is too low (conf={confidence:.2f}, text={transcript})")
+        return None, waveform, confidence
+    if not transcript:
+        return None, waveform, confidence
+    return transcript, waveform, confidence
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "backend": "qwen_omni"}
@@ -180,13 +335,23 @@ async def process_video_chunk(frame: UploadFile = File(...)) -> dict[str, Any]:
     global latest_face_image, latest_face_timestamp
 
     jpeg = await frame.read()
+    face_result = _face_encoder.encode_jpeg_bytes(jpeg)
     image, source = get_cached_face_image(jpeg)
     if image is None:
         return {"status": "error", "reason": source}
 
     latest_face_image = image
     latest_face_timestamp = time.time()
-    return {"status": "ok", "image_source": source}
+    emotion = "Unknown"
+    if isinstance(face_result, dict) and face_result.get("status") == "ok":
+        emotion = str(face_result.get("emotion", "Unknown") or "Unknown")
+    emotion = map_visual_emotion_to_ko6(emotion)
+
+    return {
+        "status": "ok",
+        "image_source": source,
+        "emotion": emotion,
+    }
 
 
 @app.post("/process_audio_chunk")
@@ -194,15 +359,40 @@ async def process_audio_chunk(audio: UploadFile = File(...)) -> dict[str, Any]:
     global latest_audio_waveform, latest_audio_timestamp, latest_transcript
 
     pcm = await audio.read()
-    latest_audio_waveform = pcm_bytes_to_waveform(pcm)
-    latest_audio_timestamp = time.time()
+    text = ""
+    stt_confidence = 0.0
 
-    text = _audio_encoder.stt_with_api(pcm) or ""
-    if text:
-        latest_transcript = text
+    if QWEN_STT_BACKEND == "qwen":
+        transcript, utterance_waveform, stt_confidence = consume_audio_buffer_for_qwen_stt(pcm)
+        if utterance_waveform is not None:
+            latest_audio_waveform = utterance_waveform
+            latest_audio_timestamp = time.time()
+        if transcript:
+            text = transcript
+            latest_transcript = text
+            commit_utterance_snapshot(text, utterance_waveform, stt_confidence)
+    elif QWEN_STT_BACKEND == "openai":
+        transcript, utterance_waveform, stt_confidence = _audio_encoder.consume_buffered_speech_openai(pcm)
+        if utterance_waveform is not None:
+            latest_audio_waveform = utterance_waveform
+            latest_audio_timestamp = time.time()
+        if transcript:
+            text = transcript
+            latest_transcript = text
+            commit_utterance_snapshot(text, utterance_waveform, stt_confidence)
+    else:
+        transcript, utterance_waveform, stt_confidence = _audio_encoder.consume_buffered_speech(pcm)
+        if utterance_waveform is not None:
+            latest_audio_waveform = utterance_waveform
+            latest_audio_timestamp = time.time()
+        if transcript:
+            text = transcript
+            latest_transcript = text
+            commit_utterance_snapshot(text, utterance_waveform, stt_confidence)
 
     return {
         "text": text,
+        "stt_confidence": stt_confidence,
         "prosody": [],
         "content": [],
         "speaker": [],
@@ -218,24 +408,38 @@ async def get_fusion_analysis(
     content: str = Form("[]"),
     speaker: str = Form("[]"),
 ) -> dict[str, Any]:
+    global last_summary_key, last_summary_text
     del prosody, content, speaker
 
     now = time.time()
-    if latest_face_image is None or (now - latest_face_timestamp) > CACHE_TTL_SEC:
+    if committed_face_image is None or (now - committed_timestamp) > CACHE_TTL_SEC:
         return {"fusion_emotion": "No Visual Input", "summary": ""}
 
-    script = (text or "").strip() or latest_transcript.strip()
+    script = (text or "").strip() or committed_transcript.strip()
     if not script:
         return {"fusion_emotion": "", "summary": ""}
 
-    if latest_audio_waveform is None or (now - latest_audio_timestamp) > CACHE_TTL_SEC:
-        summary = generate_qwen_summary(script)
+    if committed_transcript_confidence < STT_SUMMARY_MIN_CONFIDENCE:
+        return {
+            "fusion_emotion": "Low Confidence",
+            "fusion_confidence": committed_transcript_confidence,
+            "arousal": 0.0,
+            "valence": 0.0,
+            "summary": "",
+            "cls_attn": [],
+        }
+
+    summary_key = (committed_timestamp, script)
+    if last_summary_key == summary_key and last_summary_text:
+        summary = last_summary_text
     else:
-        summary = generate_qwen_summary(script)
+        summary = generate_qwen_summary(script, committed_face_image, committed_audio_waveform)
+        last_summary_key = summary_key
+        last_summary_text = summary
 
     return {
         "fusion_emotion": "",
-        "fusion_confidence": 0.0,
+        "fusion_confidence": committed_transcript_confidence,
         "arousal": 0.0,
         "valence": 0.0,
         "summary": summary,
