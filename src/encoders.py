@@ -24,6 +24,9 @@ from transformers import (
 )
 from openai import OpenAI
 
+from pyannote.audio import Model, Inference, Pipeline
+from scipy.spatial.distance import cosine
+import torchaudio
 
 # =========================
 # Common
@@ -55,10 +58,14 @@ class FaceEncoder:
         print("Loading Emotion Model (dima806/ViT)...")
         model_id = "dima806/facial_emotions_image_detection"
         self.processor = AutoImageProcessor.from_pretrained(model_id, use_fast=True)
-        self.model = AutoModelForImageClassification.from_pretrained(model_id).to(DEVICE).eval()
+        self.model = (
+            AutoModelForImageClassification.from_pretrained(model_id).to(DEVICE).eval()
+        )
 
         self.mar_history = collections.deque(maxlen=5)
-        self.MOVEMENT_THRESHOLD = 0.0003  # 원본 그대로 :contentReference[oaicite:5]{index=5}
+        self.MOVEMENT_THRESHOLD = (
+            0.0003  # 원본 그대로 :contentReference[oaicite:5]{index=5}
+        )
 
     def decode_jpeg(self, jpeg_bytes: bytes) -> Optional[np.ndarray]:
         arr = np.frombuffer(jpeg_bytes, np.uint8)
@@ -84,8 +91,12 @@ class FaceEncoder:
         bottom = landmarks[14]
         left = landmarks[61]
         right = landmarks[291]
-        vertical = np.linalg.norm(np.array([top.x, top.y]) - np.array([bottom.x, bottom.y]))
-        horizontal = np.linalg.norm(np.array([left.x, left.y]) - np.array([right.x, right.y]))
+        vertical = np.linalg.norm(
+            np.array([top.x, top.y]) - np.array([bottom.x, bottom.y])
+        )
+        horizontal = np.linalg.norm(
+            np.array([left.x, left.y]) - np.array([right.x, right.y])
+        )
         if horizontal == 0:
             return 0.0
         return vertical / horizontal
@@ -203,8 +214,8 @@ class FaceEncoder:
             final_emotion = label_map.get(top_emotion, top_emotion.capitalize())
 
         return {
-            "face_vec": face_embedding.detach().cpu().tolist(),          # (768,)
-            "face_emotion_logits": logits.detach().cpu().tolist(),       # (7,)
+            "face_vec": face_embedding.detach().cpu().tolist(),  # (768,)
+            "face_emotion_logits": logits.detach().cpu().tolist(),  # (7,)
             "emotion": final_emotion,
             "emotion_probs": probs.detach().cpu().tolist(),
             "is_speaking": is_speaking,
@@ -248,15 +259,126 @@ class AudioEncoder:
         self.file_counter = 1
 
         self.noise_words = [
-            "MBC 뉴스", "MBC뉴스", "시청해주셔서 감사합니다", "구독과 좋아요", "알림 설정",
-            "투데이 별별영상", "자막뉴스", "YTN", "KBS", "SBS", "유료광고",
-            "포함하고 있습니다", "주식시황", "오늘의 주식", "뉴스 스토리", "이덕영",
-            "기자", "보도국",
+            "MBC 뉴스",
+            "MBC뉴스",
+            "시청해주셔서 감사합니다",
+            "구독과 좋아요",
+            "알림 설정",
+            "투데이 별별영상",
+            "자막뉴스",
+            "YTN",
+            "KBS",
+            "SBS",
+            "유료광고",
+            "포함하고 있습니다",
+            "주식시황",
+            "오늘의 주식",
+            "뉴스 스토리",
+            "이덕영",
+            "기자",
+            "보도국",
         ]
-        self.filler_words = ["음...", "음", "어...", "어", "그...", "그", "아...", "아", "저...", "저", "에...", "에"]
+        self.filler_words = [
+            "음...",
+            "음",
+            "어...",
+            "어",
+            "그...",
+            "그",
+            "아...",
+            "아",
+            "저...",
+            "저",
+            "에...",
+            "에",
+        ]
 
         print("Loading WavLM-base-plus...")
-        self.wavlm = WavLMModel.from_pretrained("microsoft/wavlm-base-plus").to(self.device).eval()
+        self.wavlm = (
+            WavLMModel.from_pretrained("microsoft/wavlm-base-plus")
+            .to(self.device)
+            .eval()
+        )
+
+        # [추가] 화자 분리 및 인증 모델 로드
+        # your_token에 토큰 추가필요
+        self.hf_token = os.environ.get("HF_TOKEN", "your_token")
+        print("Loading Pyannote Models...")
+
+        # sim.py 로직: 화자 특징 추출
+        self.verify_model = Model.from_pretrained(
+            "pyannote/embedding", use_auth_token=self.hf_token
+        )
+        self.inference = Inference(self.verify_model, window="whole")
+
+        # test.py 로직: 화자 분리 파이프라인
+        self.diarization_pipeline = Pipeline.from_pretrained(
+            "pyannote/speaker-diarization-3.1", use_auth_token=self.hf_token
+        )
+        self.diarization_pipeline.to(torch.device(self.device))
+
+        # 기준 화자 임베딩 (초기에는 None, 나중에 파일로 로드 가능)
+        self.target_embedding = None
+
+    # 유사도 검사 기능을 서버용으로 변환
+    def set_target_speaker(self, target_wav_path: str):
+        """기준이 되는 '나'의 목소리를 등록합니다."""
+        self.target_embedding = self.inference(target_wav_path)
+        print("Target speaker embedding registered.")
+
+    def analyze_speakers_in_audio(self, wav_path: str):
+        """음성 파일 내에서 화자를 분리하고 기준 화자와의 유사도를 측정합니다."""
+        if self.target_embedding is None:
+            return []
+
+        # 1. 화자 분리 (Diarization)
+        diarization = self.diarization_pipeline(wav_path)
+        waveform, sr = torchaudio.load(wav_path)
+
+        # 1. 채널 통합 (스테레오 -> 모노)
+        if waveform.shape[0] > 1:
+            waveform = torch.mean(waveform, dim=0, keepdim=True)
+
+        # 2. 볼륨 정규화 (소리 크기를 일정하게 맞춤)
+        waveform = waveform / (torch.max(torch.abs(waveform)) + 1e-8)
+
+        # 3. 샘플 레이트 강제 고정 (중요!)
+        if sr != 16000:
+            resampler = torchaudio.transforms.Resample(sr, 16000)
+            waveform = resampler(waveform)
+            sr = 16000
+
+        results = []
+        # 2. 각 화자 구간별로 유사도 체크
+        for turn, _, speaker_label in diarization.itertracks(yield_label=True):
+            start_sample = int(turn.start * sr)
+            end_sample = int(turn.end * sr)
+
+            # 구간 추출
+            segment = waveform[:, start_sample:end_sample]
+
+            # 임시 세그먼트 저장 (pyannote inference는 파일이나 메모리 포맷을 요구함)
+            tmp_seg_path = "tmp_seg.wav"
+            torchaudio.save(tmp_seg_path, segment, sr)
+
+            # 유사도 계산
+            current_emb = self.inference(tmp_seg_path)
+            similarity = 1 - cosine(self.target_embedding, current_emb)
+
+            results.append(
+                {
+                    "start": round(turn.start, 2),
+                    "end": round(turn.end, 2),
+                    "speaker_label": speaker_label,
+                    "similarity": round(float(similarity), 4),
+                    "is_target": bool(similarity > 0.8),  # sim.py의 임계값 기준
+                }
+            )
+
+            if os.path.exists(tmp_seg_path):
+                os.remove(tmp_seg_path)
+
+        return results
 
     def stt_with_api(self, raw_bytes: bytes) -> Optional[str]:
         if self.client is None:
@@ -278,7 +400,7 @@ class AudioEncoder:
             audio_float32 = audio_int16.astype(np.float32) / 32768.0
             WINDOW_SIZE = 512
             for i in range(0, len(audio_float32), WINDOW_SIZE):
-                chunk = audio_float32[i: i + WINDOW_SIZE]
+                chunk = audio_float32[i : i + WINDOW_SIZE]
                 if len(chunk) < WINDOW_SIZE:
                     break
                 tensor_chunk = torch.from_numpy(chunk).to(self.device).unsqueeze(0)
@@ -296,7 +418,10 @@ class AudioEncoder:
         MAX_BUFFER = 320000
         should_send = False
 
-        if len(self.audio_buffer) > MIN_BUFFER and self.silence_chunks > self.max_silence_chunks:
+        if (
+            len(self.audio_buffer) > MIN_BUFFER
+            and self.silence_chunks > self.max_silence_chunks
+        ):
             should_send = True
         elif len(self.audio_buffer) > MAX_BUFFER:
             should_send = True
@@ -307,7 +432,9 @@ class AudioEncoder:
 
         MIN_DURATION_BYTES = 25000
         if len(self.audio_buffer) < MIN_DURATION_BYTES:
-            print(f"Discarded because the chunk is too short (size={len(self.audio_buffer)})")
+            print(
+                f"Discarded because the chunk is too short (size={len(self.audio_buffer)})"
+            )
             self.audio_buffer = bytearray()
             self.silence_chunks = 0
             return None
@@ -315,7 +442,9 @@ class AudioEncoder:
         full_buffer_int16 = np.frombuffer(self.audio_buffer, dtype=np.int16)
         full_energy = np.sqrt(np.mean(full_buffer_int16.astype(np.float32) ** 2))
         if full_energy < 300:
-            print(f"Discarded because full energy is too low (energy={int(full_energy)})")
+            print(
+                f"Discarded because full energy is too low (energy={int(full_energy)})"
+            )
             self.audio_buffer = bytearray()
             self.silence_chunks = 0
             return None
@@ -345,7 +474,11 @@ class AudioEncoder:
             self.audio_buffer = bytearray()
             self.silence_chunks = 0
 
-            raw_text = (getattr(transcript, "text", None) or (transcript.get("text") if isinstance(transcript, dict) else "") or "").strip()
+            raw_text = (
+                getattr(transcript, "text", None)
+                or (transcript.get("text") if isinstance(transcript, dict) else "")
+                or ""
+            ).strip()
 
             segments = getattr(transcript, "segments", None)
             if segments is None and isinstance(transcript, dict):
@@ -365,11 +498,15 @@ class AudioEncoder:
             no_speech_prob = _get(seg0, "no_speech_prob", None)
 
             if avg_logprob is not None and avg_logprob < -1.0:
-                print(f"Discarded because avg_logprob is too low ({avg_logprob:.2f}): {raw_text}")
+                print(
+                    f"Discarded because avg_logprob is too low ({avg_logprob:.2f}): {raw_text}"
+                )
                 return None
 
             if no_speech_prob is not None and no_speech_prob > 0.8:
-                print(f"Discarded because no_speech_prob is too high ({no_speech_prob:.2f}): {raw_text}")
+                print(
+                    f"Discarded because no_speech_prob is too high ({no_speech_prob:.2f}): {raw_text}"
+                )
                 return None
 
             if not raw_text:
@@ -379,7 +516,9 @@ class AudioEncoder:
             for noise in self.noise_words:
                 filtered_text = filtered_text.replace(noise, "")
             for filler in self.filler_words:
-                filtered_text = filtered_text.replace(f"{filler} ", "").replace(f" {filler}", "")
+                filtered_text = filtered_text.replace(f"{filler} ", "").replace(
+                    f" {filler}", ""
+                )
                 if filtered_text == filler:
                     filtered_text = ""
 
@@ -403,7 +542,9 @@ class AudioEncoder:
     # WavLM feature extractor (원본 그대로) :contentReference[oaicite:10]{index=10}
     def extract_features_from_pcm(self, pcm_np: np.ndarray) -> Dict[str, Any]:
         with torch.no_grad():
-            wav = torch.tensor(pcm_np, dtype=torch.float32, device=self.device).unsqueeze(0)
+            wav = torch.tensor(
+                pcm_np, dtype=torch.float32, device=self.device
+            ).unsqueeze(0)
             out = self.wavlm(wav, output_hidden_states=True)
             hidden = out.last_hidden_state
             T = hidden.size(1)
@@ -421,7 +562,7 @@ class AudioEncoder:
             frame_len = int(0.025 * 16000)
             hop = int(0.010 * 16000)
             energies = [
-                wav_cpu[i: i + frame_len].abs().mean().item()
+                wav_cpu[i : i + frame_len].abs().mean().item()
                 for i in range(0, wav_cpu.numel() - frame_len, hop)
             ]
             if len(energies) == 0:
@@ -445,7 +586,12 @@ class AudioEncoder:
 # Text Encoder (embedding.py에서 쓰던 mean-pool 그대로 래핑)
 # =========================
 class TextEncoder:
-    def __init__(self, model_name: str = "klue/roberta-small", device: str = DEVICE, max_length: int = 64):
+    def __init__(
+        self,
+        model_name: str = "klue/roberta-small",
+        device: str = DEVICE,
+        max_length: int = 64,
+    ):
         self.device = device
         self.max_length = max_length
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -470,7 +616,7 @@ class TextEncoder:
         denom = mask_f.sum(dim=1).clamp(min=1e-6)
         vec = (summed / denom).squeeze(0).detach().cpu().numpy().astype(np.float32)
         return vec  # (768,)
-    
+
     @staticmethod
     def load_translate_cache(path: str) -> dict:
         if os.path.exists(path):
@@ -497,4 +643,3 @@ class TextEncoder:
 
         cache[sample_id] = ko
         return ko
-

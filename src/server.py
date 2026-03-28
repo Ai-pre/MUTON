@@ -7,25 +7,32 @@
 # ---------------------------
 # 기본 라이브러리
 # ---------------------------
-import json                          # JSON 문자열 ↔ 파이썬 객체 변환 (Form으로 받은 벡터 파싱 등에 사용)
-import random                        # few-shot 예시 랜덤 샘플링에 사용
-import numpy as np                   # attention 기반 temperature 계산, pcm → float 변환 등에 사용
-import torch                         # 모델 로딩/추론 (PyTorch)
-import torch.nn as nn                # FusionBlock / Linear / LayerNorm 등 모델 구성
-import uvicorn                       # FastAPI 서버 실행기
-import time                          # 얼굴 캐시 타임스탬프 관리(최근 프레임 유지)
+import json  # JSON 문자열 ↔ 파이썬 객체 변환 (Form으로 받은 벡터 파싱 등에 사용)
+import random  # few-shot 예시 랜덤 샘플링에 사용
+import numpy as np  # attention 기반 temperature 계산, pcm → float 변환 등에 사용
+import torch  # 모델 로딩/추론 (PyTorch)
+import torch.nn as nn  # FusionBlock / Linear / LayerNorm 등 모델 구성
+import uvicorn  # FastAPI 서버 실행기
+import time  # 얼굴 캐시 타임스탬프 관리(최근 프레임 유지)
+import os  # 파일/디렉토리 관리
+import wave  # WAV파일 열기
 
 # ---------------------------
 # FastAPI 관련
 # ---------------------------
-from fastapi import FastAPI, UploadFile, File, Form  # API 서버/멀티파트 업로드/폼데이터 입력
-from fastapi.middleware.cors import CORSMiddleware   # Android 앱에서 CORS 막힘 방지
-from fastapi.responses import JSONResponse           # (필요시) JSON 응답 커스텀
+from fastapi import (
+    FastAPI,
+    UploadFile,
+    File,
+    Form,
+)  # API 서버/멀티파트 업로드/폼데이터 입력
+from fastapi.middleware.cors import CORSMiddleware  # Android 앱에서 CORS 막힘 방지
+from fastapi.responses import JSONResponse  # (필요시) JSON 응답 커스텀
 
 # ---------------------------
 # Transformers(텍스트 임베딩)
 # ---------------------------
-from transformers import AutoTokenizer, AutoModel    # KLUE RoBERTa 로딩
+from transformers import AutoTokenizer, AutoModel  # KLUE RoBERTa 로딩
 
 # ---------------------------
 # 프로젝트 내부 모듈
@@ -39,13 +46,15 @@ from muton.encoders import FaceEncoder, AudioEncoder, TextEncoder
 #   가장 최근 얼굴 벡터(latest_face_vec)를 전역에 저장해두고
 #   audio 분석이 들어오면 그때 "가장 최근 얼굴"을 같이 사용함
 # =====================================================
-latest_face_vec = None               # 최신 얼굴 결과(dict): face_vec(768), face_emotion_logits(7), emotion label 등
-face_vec_timestamp = 0               # latest_face_vec가 갱신된 시각(초 단위 epoch time)
+latest_face_vec = None  # 최신 얼굴 결과(dict): face_vec(768), face_emotion_logits(7), emotion label 등
+face_vec_timestamp = 0  # latest_face_vec가 갱신된 시각(초 단위 epoch time)
 
 # =====================================================
 # DEVICE 설정
 # =====================================================
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"  # GPU 있으면 CUDA 사용, 없으면 CPU
+DEVICE = (
+    "cuda" if torch.cuda.is_available() else "cpu"
+)  # GPU 있으면 CUDA 사용, 없으면 CPU
 
 # =====================================================
 # FastAPI 앱 생성 + CORS 허용
@@ -53,16 +62,17 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"  # GPU 있으면 CUDA �
 app = FastAPI()  # FastAPI 인스턴스 생성
 
 app.add_middleware(
-    CORSMiddleware,                 # CORS 미들웨어 활성화
-    allow_origins=["*"],            # 모든 도메인 허용 (개발용; 배포 시 특정 도메인으로 제한 권장)
-    allow_credentials=True,         # 쿠키/인증 포함 요청 허용
-    allow_methods=["*"],            # GET/POST 등 모든 메서드 허용
-    allow_headers=["*"],            # 모든 헤더 허용
+    CORSMiddleware,  # CORS 미들웨어 활성화
+    allow_origins=["*"],  # 모든 도메인 허용 (개발용; 배포 시 특정 도메인으로 제한 권장)
+    allow_credentials=True,  # 쿠키/인증 포함 요청 허용
+    allow_methods=["*"],  # GET/POST 등 모든 메서드 허용
+    allow_headers=["*"],  # 모든 헤더 허용
 )
 
 # =====================================================
 # 1. Fusion Model
 # =====================================================
+
 
 class FusionTransformer(nn.Module):
     def __init__(self, d_model=256, nhead=8, nlayers=4, dropout=0.1, num_emotions=7):
@@ -79,21 +89,25 @@ class FusionTransformer(nn.Module):
         nn.init.normal_(self.cls, std=0.02)
 
         # ✅ 이름: layers / norms1 / norms2 / ffns  (ckpt와 동일)
-        self.layers = nn.ModuleList([
-            nn.MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=True)
-            for _ in range(nlayers)
-        ])
+        self.layers = nn.ModuleList(
+            [
+                nn.MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=True)
+                for _ in range(nlayers)
+            ]
+        )
         self.norms1 = nn.ModuleList([nn.LayerNorm(d_model) for _ in range(nlayers)])
         self.norms2 = nn.ModuleList([nn.LayerNorm(d_model) for _ in range(nlayers)])
-        self.ffns = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(d_model, d_model * 4),
-                nn.GELU(),
-                nn.Dropout(dropout),
-                nn.Linear(d_model * 4, d_model),
-            )
-            for _ in range(nlayers)
-        ])
+        self.ffns = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(d_model, d_model * 4),
+                    nn.GELU(),
+                    nn.Dropout(dropout),
+                    nn.Linear(d_model * 4, d_model),
+                )
+                for _ in range(nlayers)
+            ]
+        )
 
         self.head_emo = nn.Linear(d_model, num_emotions)
         self.head_arousal = nn.Linear(d_model, 1)
@@ -110,15 +124,15 @@ class FusionTransformer(nn.Module):
 
         tokens = torch.stack([t0, t1, t2, t3, t4, t5], dim=1)  # (B,6,d)
         cls = self.cls.expand(B, -1, -1)
-        x = torch.cat([cls, tokens], dim=1)                    # (B,7,d)
+        x = torch.cat([cls, tokens], dim=1)  # (B,7,d)
 
         attn_last = None
-        for attn, norm1, norm2, ffn in zip(self.layers, self.norms1, self.norms2, self.ffns):
+        for attn, norm1, norm2, ffn in zip(
+            self.layers, self.norms1, self.norms2, self.ffns
+        ):
             # ✅ head별 attn 유지
             attn_out, attn_weights = attn(
-                x, x, x,
-                need_weights=True,
-                average_attn_weights=False
+                x, x, x, need_weights=True, average_attn_weights=False
             )
             x = norm1(x + attn_out)
             x = norm2(x + ffn(x))
@@ -134,9 +148,6 @@ class FusionTransformer(nn.Module):
             return emo_logits, arousal, valence, cls_attn
 
         return emo_logits, arousal, valence
-
-
-
 
 
 # =====================================================
@@ -174,6 +185,7 @@ def normalize_fusion_state_dict(state_dict):
 
     return remapped
 
+
 # ---------------------------
 # Fusion 모델 가중치 경로
 # ---------------------------
@@ -189,7 +201,7 @@ fusion_model = FusionTransformer(
     d_model=cfg.get("d_model", 256),
     nhead=cfg.get("nhead", 8),
     nlayers=cfg.get("nlayers", 4),
-    num_emotions=num_emotions
+    num_emotions=num_emotions,
 ).to(DEVICE)
 
 fusion_model.load_state_dict(model_state, strict=True)
@@ -202,15 +214,25 @@ print("Fusion model loaded")
 # - get_text_embedding에서 mean pooling으로 문장 임베딩 구성
 # ---------------------------
 tokenizer = AutoTokenizer.from_pretrained("klue/roberta-small")  # 토크나이저 로드
-text_encoder = AutoModel.from_pretrained("klue/roberta-small").to(DEVICE).eval()  # 모델 로드 + eval
+text_encoder = (
+    AutoModel.from_pretrained("klue/roberta-small").to(DEVICE).eval()
+)  # 모델 로드 + eval
 
 # ---------------------------
 # 오디오/얼굴 인코더 로드
 # - AudioEncoder: Whisper API + Silero VAD + WavLM features
 # - FaceEncoder : JPEG → face_vec / emotion logits 등
 # ---------------------------
-audio_encoder = AudioEncoder()                                 # 오디오 인코더 인스턴스 생성
-face_encoder = FaceEncoder()                                   # 얼굴 인코더 인스턴스 생성
+audio_encoder = AudioEncoder()  # 오디오 인코더 인스턴스 생성
+face_encoder = FaceEncoder()  # 얼굴 인코더 인스턴스 생성
+
+# ---------------------------
+# 서버 시작 시 기준 화자의 목소리 등록
+# 파일이 없다면 먼저 등록하는 과정을 거쳐야 analyze_speakers가 작동
+# ---------------------------
+TARGET_VOICE_PATH = "data/my_voice_target.wav"
+if os.path.exists(TARGET_VOICE_PATH):
+    audio_encoder.set_target_speaker(TARGET_VOICE_PATH)
 
 # ---------------------------
 # fusion output index → emotion label
@@ -234,24 +256,26 @@ else:
 # - GPT 요약 생성 시, 같은 감정 라벨의 예시 문장을 few-shot으로 넣어줌
 # =====================================================
 JSON_PATH = env_path("MUTON_MULTI_TEXT_JSON", "preprocessing/multi_text.json")
-exemplar_dict = {}                                            # {Emotion(str): [summary(str), ...]}
+exemplar_dict = {}  # {Emotion(str): [summary(str), ...]}
 
 try:
-    with open(JSON_PATH, "r", encoding="utf-8") as f:          # JSON 로드
+    with open(JSON_PATH, "r", encoding="utf-8") as f:  # JSON 로드
         data = json.load(f)
 
     # data의 구조가 {something: [items]} 형태라고 가정하고 순회
-    for _, items in data.items():                              # 각 그룹(items)을 순회
-        for item in items:                                     # 아이템 하나씩 처리
-            raw_emotion = item.get("emotion", "Neutral").capitalize()  # emotion 필드 추출 + capitalize
-            if raw_emotion == "Dislike":                       # 데이터셋 라벨 불일치 보정
+    for _, items in data.items():  # 각 그룹(items)을 순회
+        for item in items:  # 아이템 하나씩 처리
+            raw_emotion = item.get(
+                "emotion", "Neutral"
+            ).capitalize()  # emotion 필드 추출 + capitalize
+            if raw_emotion == "Dislike":  # 데이터셋 라벨 불일치 보정
                 raw_emotion = "Disgust"
 
             # JSON마다 summary 필드명이 다를 수 있어서 안전하게 후보 키를 순차 탐색
             summary = (
-                item.get("summary_text")                       # 후보1
-                or item.get("summary_textc")                   # 후보2
-                or item.get("accessible_emotion_desc")         # 후보3
+                item.get("summary_text")  # 후보1
+                or item.get("summary_textc")  # 후보2
+                or item.get("accessible_emotion_desc")  # 후보3
             )
 
             # summary가 있고 너무 짧지 않으면 exemplar_dict에 추가
@@ -271,35 +295,50 @@ except Exception as e:
 # Utils
 # =====================================================
 
+
 def get_text_embedding(text):
     # text: STT 결과 문자열
     # klue/roberta-small을 사용하여 문장 임베딩을 만듦 (mean pooling)
 
     inputs = tokenizer(
-        text or "",                                           # None 대비
-        return_tensors="pt",                                  # PyTorch tensor로 반환
-        truncation=True,                                      # max_length 초과 시 자름
-        padding="max_length",                                 # max_length로 패딩
-        max_length=64                                         # 짧게 제한 (속도 + 안정)
-    ).to(DEVICE)                                              # 입력 텐서를 DEVICE로 이동
+        text or "",  # None 대비
+        return_tensors="pt",  # PyTorch tensor로 반환
+        truncation=True,  # max_length 초과 시 자름
+        padding="max_length",  # max_length로 패딩
+        max_length=64,  # 짧게 제한 (속도 + 안정)
+    ).to(
+        DEVICE
+    )  # 입력 텐서를 DEVICE로 이동
 
-    with torch.no_grad():                                     # 추론이므로 grad 비활성
-        out = text_encoder(**inputs, return_dict=True)        # transformer forward
-        mask = inputs["attention_mask"].unsqueeze(-1)         # (B, L, 1)
+    with torch.no_grad():  # 추론이므로 grad 비활성
+        out = text_encoder(**inputs, return_dict=True)  # transformer forward
+        mask = inputs["attention_mask"].unsqueeze(-1)  # (B, L, 1)
         # mean pooling: (hidden * mask).sum / mask.sum
         vec = (out.last_hidden_state * mask).sum(1) / mask.sum(1)
 
-    return vec.cpu()                                          # CPU로 반환(이후 .to(DEVICE)로 다시 옮김)
+    return vec.cpu()  # CPU로 반환(이후 .to(DEVICE)로 다시 옮김)
 
 
 def predict_fusion_emotion(face_out, feats, text):
     with torch.no_grad():
         batch = {
-            "face_vec": torch.tensor(face_out["face_vec"], dtype=torch.float32).unsqueeze(0).to(DEVICE),
-            "face_emo": torch.tensor(face_out["face_emotion_logits"], dtype=torch.float32).unsqueeze(0).to(DEVICE),
-            "a_cont": torch.tensor(feats["content"], dtype=torch.float32).unsqueeze(0).to(DEVICE),
-            "a_spk": torch.tensor(feats["speaker"], dtype=torch.float32).unsqueeze(0).to(DEVICE),
-            "a_pros": torch.tensor(feats["prosody"], dtype=torch.float32).unsqueeze(0).to(DEVICE),
+            "face_vec": torch.tensor(face_out["face_vec"], dtype=torch.float32)
+            .unsqueeze(0)
+            .to(DEVICE),
+            "face_emo": torch.tensor(
+                face_out["face_emotion_logits"], dtype=torch.float32
+            )
+            .unsqueeze(0)
+            .to(DEVICE),
+            "a_cont": torch.tensor(feats["content"], dtype=torch.float32)
+            .unsqueeze(0)
+            .to(DEVICE),
+            "a_spk": torch.tensor(feats["speaker"], dtype=torch.float32)
+            .unsqueeze(0)
+            .to(DEVICE),
+            "a_pros": torch.tensor(feats["prosody"], dtype=torch.float32)
+            .unsqueeze(0)
+            .to(DEVICE),
             "text": get_text_embedding(text).to(DEVICE),
         }
 
@@ -316,8 +355,6 @@ def predict_fusion_emotion(face_out, feats, text):
         return emotion, conf, float(aro.item()), float(val.item()), cls_attn
 
 
-
-
 # =====================================================
 # GPT Summary (🔥 temperature = attention 기반)
 # - attention에서 text 비중이 높으면 temperature를 낮춰 더 보수적으로 요약
@@ -326,7 +363,7 @@ def predict_fusion_emotion(face_out, feats, text):
 def generate_situation_summary(emotion, conf, text, aro, val, cls_attn):
     # cls_attn: [face_vec, face_emo, audio_c, audio_s, audio_p, text]
 
-    text_attn = float(cls_attn[-1])                               # 마지막 토큰이 text token이므로 text 주의도
+    text_attn = float(cls_attn[-1])  # 마지막 토큰이 text token이므로 text 주의도
 
     # attention 기반 temperature:
     # - text_attn이 클수록 더 deterministic하게(temperature 낮게)
@@ -338,9 +375,9 @@ def generate_situation_summary(emotion, conf, text, aro, val, cls_attn):
     example_prompt = ""
     examples = exemplar_dict.get(emotion, [])
 
-    if examples:                                                  # 예시가 존재하면
-        shots = random.sample(examples, min(3, len(examples)))    # 최대 3개 랜덤 추출
-        example_prompt = "\n".join([f"- {ex}" for ex in shots])   # bullet 형태로 합치기
+    if examples:  # 예시가 존재하면
+        shots = random.sample(examples, min(3, len(examples)))  # 최대 3개 랜덤 추출
+        example_prompt = "\n".join([f"- {ex}" for ex in shots])  # bullet 형태로 합치기
 
     # ---------------------------------
     # GPT에게 주는 프롬프트
@@ -378,35 +415,36 @@ def generate_situation_summary(emotion, conf, text, aro, val, cls_attn):
     # - temperature는 attention 기반
     # ---------------------------------
     res = audio_encoder.client.chat.completions.create(
-        model="gpt-4o-mini",                                      # 빠르고 저렴한 모델
-        messages=[{"role": "user", "content": prompt}],           # user 프롬프트로 전달
-        temperature=temperature,                                  # attention 기반 temperature
-        max_tokens=80                                             # 한 문장이라 짧게 제한
+        model="gpt-4o-mini",  # 빠르고 저렴한 모델
+        messages=[{"role": "user", "content": prompt}],  # user 프롬프트로 전달
+        temperature=temperature,  # attention 기반 temperature
+        max_tokens=80,  # 한 문장이라 짧게 제한
     )
 
-    return res.choices[0].message.content.strip()                 # 출력 텍스트 반환
+    return res.choices[0].message.content.strip()  # 출력 텍스트 반환
 
 
 # =====================================================
 # API
 # =====================================================
 
+
 @app.post("/process_video_chunk")
 async def process_video_chunk(frame: UploadFile = File(...)):
     # Android에서 JPEG 프레임을 멀티파트로 전송하면
     # 여기서 bytes를 읽고 FaceEncoder로 얼굴 벡터/감정 추론 수행
 
-    global latest_face_vec, face_vec_timestamp                    # 전역 캐시 갱신을 위해 global 선언
+    global latest_face_vec, face_vec_timestamp  # 전역 캐시 갱신을 위해 global 선언
 
-    jpeg = await frame.read()                                     # 업로드된 파일을 bytes로 읽기
-    res = face_encoder.encode_jpeg_bytes(jpeg)                    # 얼굴 인코더 수행(구현은 face.py 내부)
+    jpeg = await frame.read()  # 업로드된 파일을 bytes로 읽기
+    res = face_encoder.encode_jpeg_bytes(jpeg)  # 얼굴 인코더 수행(구현은 face.py 내부)
 
     # face 인코딩이 성공하면 전역 캐시 업데이트
     if res.get("status") == "ok":
-        latest_face_vec = res                                     # 최신 얼굴 결과 저장
-        face_vec_timestamp = time.time()                          # 갱신 시각 저장
+        latest_face_vec = res  # 최신 얼굴 결과 저장
+        face_vec_timestamp = time.time()  # 갱신 시각 저장
 
-    return res                                                    # 얼굴 분석 결과(감정 등) 그대로 반환
+    return res  # 얼굴 분석 결과(감정 등) 그대로 반환
 
 
 @app.post("/process_audio_chunk")
@@ -416,7 +454,7 @@ async def process_audio_chunk(audio: UploadFile = File(...)):
     # 2) 동일 PCM chunk로 WavLM 기반 feature 추출
     # 3) 결과를 JSON으로 반환 (Android가 2차 분석 트리거)
 
-    pcm = await audio.read()                                      # 업로드된 pcm bytes 읽기
+    pcm = await audio.read()  # 업로드된 pcm bytes 읽기
 
     # STT: audio.py 내부에서 VAD/버퍼 누적 후 조건 만족할 때만 텍스트 반환
     # 조건 미달이면 None → ""로 처리
@@ -428,16 +466,53 @@ async def process_audio_chunk(audio: UploadFile = File(...)):
     # WavLM 기반 특징 추출 (prosody/content/speaker 각각 768)
     feats = audio_encoder.extract_features_from_pcm(pcm_np)
 
+    # 화자 분리 및 유사도 검사
+    speaker_analysis_results = []
+
+    # 효율성을 위해 음성이 감지되었을 때(text가 있을 때)만 정밀 분석 수행
+    # 테스트를 위해 임시로 주석처리
+    # if text.strip():
+
+    # pyannote 처리를 위해 임시 wav 파일 생성
+    temp_filename = f"temp_{int(time.time())}.wav"
+    try:
+        with wave.open(temp_filename, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            wf.writeframes(pcm)
+
+            # src/encoders.py에 추가한 함수 호출
+        speaker_analysis_results = audio_encoder.analyze_speakers_in_audio(
+            temp_filename
+        )
+    finally:
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
+
     # Android에 빠르게 반환할 payload
     # - fusion_emotion/summary는 여기서는 비움 (2차 엔드포인트에서 수행)
     return {
-        "text": text,                                             # STT 결과 (없으면 "")
-        "prosody": feats["prosody"],                               # prosody vector (list[float], 768)
-        "content": feats["content"],                               # content vector (list[float], 768)
-        "speaker": feats["speaker"],                               # speaker vector (list[float], 768)
-        "fusion_emotion": "",                                      # 2차에서 채움
-        "summary": ""                                             # 2차에서 채움
+        "text": text,  # STT 결과 (없으면 "")
+        "speaker_analysis": speaker_analysis_results,  # 화자 구간, 유사도, 타겟 여부 포함
+        "prosody": feats["prosody"],  # prosody vector (list[float], 768)
+        "content": feats["content"],  # content vector (list[float], 768)
+        "speaker": feats["speaker"],  # speaker vector (list[float], 768)
+        "fusion_emotion": "",  # 2차에서 채움
+        "summary": "",  # 2차에서 채움
     }
+
+
+# [선택] 새로운 기준 화자를 등록하는 API (앱에서 호출 가능)
+@app.post("/register_target")
+async def register_target(audio: UploadFile = File(...)):
+    save_path = "data/my_voice_target.wav"
+    os.makedirs("data", exist_ok=True)
+    with open(save_path, "wb") as f:
+        f.write(await audio.read())
+
+    audio_encoder.set_target_speaker(save_path)
+    return {"message": "Target speaker registered successfully"}
 
 
 @app.post("/get_fusion_analysis")
@@ -459,7 +534,9 @@ async def get_fusion_analysis(
     }
 
     # ✅ 여기서 fusion + attn까지
-    emotion, conf, aro, val, cls_attn = predict_fusion_emotion(latest_face_vec, feats, text)
+    emotion, conf, aro, val, cls_attn = predict_fusion_emotion(
+        latest_face_vec, feats, text
+    )
 
     summary = ""
     if conf > 0.4 and cls_attn is not None:
@@ -473,7 +550,6 @@ async def get_fusion_analysis(
         "summary": summary,
         "cls_attn": cls_attn,  # (선택) 디버깅/시각화용
     }
-
 
 
 # =====================================================
