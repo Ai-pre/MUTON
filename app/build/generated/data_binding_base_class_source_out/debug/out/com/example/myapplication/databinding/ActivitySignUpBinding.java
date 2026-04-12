@@ -41,6 +41,12 @@ public final class ActivitySignUpBinding implements ViewBinding {
   public final LinearLayout formWrap;
 
   @NonNull
+  public final ImageView imgMicIcon;
+
+  @NonNull
+  public final ImageView imgTermsArrow;
+
+  @NonNull
   public final EditText inputName;
 
   @NonNull
@@ -68,9 +74,6 @@ public final class ActivitySignUpBinding implements ViewBinding {
   public final LinearLayout termsHeader;
 
   @NonNull
-  public final TextView txtMicIcon;
-
-  @NonNull
   public final TextView txtNicknameDuplicate;
 
   @NonNull
@@ -86,28 +89,31 @@ public final class ActivitySignUpBinding implements ViewBinding {
   public final TextView txtRecordTitle;
 
   @NonNull
-  public final TextView txtTermsArrow;
+  public final TextView txtTermsTitle;
 
   @NonNull
   public final FrameLayout voiceOverlay;
 
   private ActivitySignUpBinding(@NonNull FrameLayout rootView, @NonNull Button btnComplete,
       @NonNull LinearLayout btnMicRecord, @NonNull ImageView btnPasswordConfirmVisibility,
-      @NonNull Button btnRecordAction, @NonNull LinearLayout formWrap, @NonNull EditText inputName,
+      @NonNull Button btnRecordAction, @NonNull LinearLayout formWrap,
+      @NonNull ImageView imgMicIcon, @NonNull ImageView imgTermsArrow, @NonNull EditText inputName,
       @NonNull EditText inputPassword, @NonNull EditText inputPasswordConfirm,
       @NonNull View logoMark, @NonNull CheckBox switchAllTerms,
       @NonNull CheckBox switchCameraPermission, @NonNull CheckBox switchMicPermission,
       @NonNull LinearLayout termsDetailWrap, @NonNull LinearLayout termsHeader,
-      @NonNull TextView txtMicIcon, @NonNull TextView txtNicknameDuplicate,
-      @NonNull Chronometer txtOverlayTimer, @NonNull TextView txtPasswordMismatch,
-      @NonNull TextView txtRecordSample, @NonNull TextView txtRecordTitle,
-      @NonNull TextView txtTermsArrow, @NonNull FrameLayout voiceOverlay) {
+      @NonNull TextView txtNicknameDuplicate, @NonNull Chronometer txtOverlayTimer,
+      @NonNull TextView txtPasswordMismatch, @NonNull TextView txtRecordSample,
+      @NonNull TextView txtRecordTitle, @NonNull TextView txtTermsTitle,
+      @NonNull FrameLayout voiceOverlay) {
     this.rootView = rootView;
     this.btnComplete = btnComplete;
     this.btnMicRecord = btnMicRecord;
     this.btnPasswordConfirmVisibility = btnPasswordConfirmVisibility;
     this.btnRecordAction = btnRecordAction;
     this.formWrap = formWrap;
+    this.imgMicIcon = imgMicIcon;
+    this.imgTermsArrow = imgTermsArrow;
     this.inputName = inputName;
     this.inputPassword = inputPassword;
     this.inputPasswordConfirm = inputPasswordConfirm;
@@ -117,13 +123,12 @@ public final class ActivitySignUpBinding implements ViewBinding {
     this.switchMicPermission = switchMicPermission;
     this.termsDetailWrap = termsDetailWrap;
     this.termsHeader = termsHeader;
-    this.txtMicIcon = txtMicIcon;
     this.txtNicknameDuplicate = txtNicknameDuplicate;
     this.txtOverlayTimer = txtOverlayTimer;
     this.txtPasswordMismatch = txtPasswordMismatch;
     this.txtRecordSample = txtRecordSample;
     this.txtRecordTitle = txtRecordTitle;
-    this.txtTermsArrow = txtTermsArrow;
+    this.txtTermsTitle = txtTermsTitle;
     this.voiceOverlay = voiceOverlay;
   }
 
@@ -184,6 +189,18 @@ public final class ActivitySignUpBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.imgMicIcon;
+      ImageView imgMicIcon = ViewBindings.findChildViewById(rootView, id);
+      if (imgMicIcon == null) {
+        break missingId;
+      }
+
+      id = R.id.imgTermsArrow;
+      ImageView imgTermsArrow = ViewBindings.findChildViewById(rootView, id);
+      if (imgTermsArrow == null) {
+        break missingId;
+      }
+
       id = R.id.inputName;
       EditText inputName = ViewBindings.findChildViewById(rootView, id);
       if (inputName == null) {
@@ -238,12 +255,6 @@ public final class ActivitySignUpBinding implements ViewBinding {
         break missingId;
       }
 
-      id = R.id.txtMicIcon;
-      TextView txtMicIcon = ViewBindings.findChildViewById(rootView, id);
-      if (txtMicIcon == null) {
-        break missingId;
-      }
-
       id = R.id.txtNicknameDuplicate;
       TextView txtNicknameDuplicate = ViewBindings.findChildViewById(rootView, id);
       if (txtNicknameDuplicate == null) {
@@ -274,9 +285,9 @@ public final class ActivitySignUpBinding implements ViewBinding {
         break missingId;
       }
 
-      id = R.id.txtTermsArrow;
-      TextView txtTermsArrow = ViewBindings.findChildViewById(rootView, id);
-      if (txtTermsArrow == null) {
+      id = R.id.txtTermsTitle;
+      TextView txtTermsTitle = ViewBindings.findChildViewById(rootView, id);
+      if (txtTermsTitle == null) {
         break missingId;
       }
 
@@ -287,11 +298,11 @@ public final class ActivitySignUpBinding implements ViewBinding {
       }
 
       return new ActivitySignUpBinding((FrameLayout) rootView, btnComplete, btnMicRecord,
-          btnPasswordConfirmVisibility, btnRecordAction, formWrap, inputName, inputPassword,
-          inputPasswordConfirm, logoMark, switchAllTerms, switchCameraPermission,
-          switchMicPermission, termsDetailWrap, termsHeader, txtMicIcon, txtNicknameDuplicate,
-          txtOverlayTimer, txtPasswordMismatch, txtRecordSample, txtRecordTitle, txtTermsArrow,
-          voiceOverlay);
+          btnPasswordConfirmVisibility, btnRecordAction, formWrap, imgMicIcon, imgTermsArrow,
+          inputName, inputPassword, inputPasswordConfirm, logoMark, switchAllTerms,
+          switchCameraPermission, switchMicPermission, termsDetailWrap, termsHeader,
+          txtNicknameDuplicate, txtOverlayTimer, txtPasswordMismatch, txtRecordSample,
+          txtRecordTitle, txtTermsTitle, voiceOverlay);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

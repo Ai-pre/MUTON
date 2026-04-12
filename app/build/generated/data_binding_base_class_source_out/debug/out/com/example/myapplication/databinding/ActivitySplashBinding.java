@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -22,25 +23,38 @@ public final class ActivitySplashBinding implements ViewBinding {
   private final ConstraintLayout rootView;
 
   @NonNull
+  public final LinearLayout brandRow;
+
+  @NonNull
   public final FrameLayout brandStage;
 
   @NonNull
   public final ImageView imgSplashLogo;
 
   @NonNull
-  public final TextView txtSplashBrand;
+  public final FrameLayout muStage;
 
   @NonNull
-  public final TextView txtSplashMu;
+  public final TextView txtSplashMuBase;
 
-  private ActivitySplashBinding(@NonNull ConstraintLayout rootView, @NonNull FrameLayout brandStage,
-      @NonNull ImageView imgSplashLogo, @NonNull TextView txtSplashBrand,
-      @NonNull TextView txtSplashMu) {
+  @NonNull
+  public final TextView txtSplashMuOverlay;
+
+  @NonNull
+  public final TextView txtSplashTon;
+
+  private ActivitySplashBinding(@NonNull ConstraintLayout rootView, @NonNull LinearLayout brandRow,
+      @NonNull FrameLayout brandStage, @NonNull ImageView imgSplashLogo,
+      @NonNull FrameLayout muStage, @NonNull TextView txtSplashMuBase,
+      @NonNull TextView txtSplashMuOverlay, @NonNull TextView txtSplashTon) {
     this.rootView = rootView;
+    this.brandRow = brandRow;
     this.brandStage = brandStage;
     this.imgSplashLogo = imgSplashLogo;
-    this.txtSplashBrand = txtSplashBrand;
-    this.txtSplashMu = txtSplashMu;
+    this.muStage = muStage;
+    this.txtSplashMuBase = txtSplashMuBase;
+    this.txtSplashMuOverlay = txtSplashMuOverlay;
+    this.txtSplashTon = txtSplashTon;
   }
 
   @Override
@@ -70,6 +84,12 @@ public final class ActivitySplashBinding implements ViewBinding {
     // This is done to optimize the compiled bytecode for size and performance.
     int id;
     missingId: {
+      id = R.id.brandRow;
+      LinearLayout brandRow = ViewBindings.findChildViewById(rootView, id);
+      if (brandRow == null) {
+        break missingId;
+      }
+
       id = R.id.brandStage;
       FrameLayout brandStage = ViewBindings.findChildViewById(rootView, id);
       if (brandStage == null) {
@@ -82,20 +102,32 @@ public final class ActivitySplashBinding implements ViewBinding {
         break missingId;
       }
 
-      id = R.id.txtSplashBrand;
-      TextView txtSplashBrand = ViewBindings.findChildViewById(rootView, id);
-      if (txtSplashBrand == null) {
+      id = R.id.muStage;
+      FrameLayout muStage = ViewBindings.findChildViewById(rootView, id);
+      if (muStage == null) {
         break missingId;
       }
 
-      id = R.id.txtSplashMu;
-      TextView txtSplashMu = ViewBindings.findChildViewById(rootView, id);
-      if (txtSplashMu == null) {
+      id = R.id.txtSplashMuBase;
+      TextView txtSplashMuBase = ViewBindings.findChildViewById(rootView, id);
+      if (txtSplashMuBase == null) {
         break missingId;
       }
 
-      return new ActivitySplashBinding((ConstraintLayout) rootView, brandStage, imgSplashLogo,
-          txtSplashBrand, txtSplashMu);
+      id = R.id.txtSplashMuOverlay;
+      TextView txtSplashMuOverlay = ViewBindings.findChildViewById(rootView, id);
+      if (txtSplashMuOverlay == null) {
+        break missingId;
+      }
+
+      id = R.id.txtSplashTon;
+      TextView txtSplashTon = ViewBindings.findChildViewById(rootView, id);
+      if (txtSplashTon == null) {
+        break missingId;
+      }
+
+      return new ActivitySplashBinding((ConstraintLayout) rootView, brandRow, brandStage,
+          imgSplashLogo, muStage, txtSplashMuBase, txtSplashMuOverlay, txtSplashTon);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

@@ -3,8 +3,8 @@ package com.example.myapplication
 import android.content.Intent
 import android.os.Bundle
 import android.widget.SeekBar
-import com.google.firebase.auth.FirebaseAuth
 import com.example.myapplication.databinding.ActivitySettingsBinding
+import com.google.firebase.auth.FirebaseAuth
 
 class SettingsActivity : BaseActivity() {
 
@@ -21,6 +21,13 @@ class SettingsActivity : BaseActivity() {
         }
         binding.rowChangePassword.setOnClickListener {
             startActivity(Intent(this, ChangePasswordActivity::class.java))
+        }
+        binding.switchDarkMode.isChecked = DarkModeManager.isEnabled(this)
+        binding.switchDarkMode.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked == DarkModeManager.isEnabled(this)) return@setOnCheckedChangeListener
+            DarkModeManager.setEnabled(this, isChecked)
+            DarkModeManager.apply(this)
+            recreate()
         }
         binding.txtLogout.setOnClickListener {
             FirebaseAuth.getInstance().signOut()

@@ -8,10 +8,6 @@
         "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_splash.xml"
     },
     {
-        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\popup_calendar_menu.xml",
-        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\popup_calendar_menu.xml"
-    },
-    {
         "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\item_home_favorite.xml",
         "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\item_home_favorite.xml"
     },
@@ -24,12 +20,56 @@
         "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_record_detail.xml"
     },
     {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\activity_change_password.xml",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_change_password.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/activity_record_detail.xml",
+        "source": "com.example.myapplication.app-main-7:/layout/activity_record_detail.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/activity_sign_up.xml",
+        "source": "com.example.myapplication.app-main-7:/layout/activity_sign_up.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\activity_settings.xml",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_settings.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\activity_main.xml",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_main.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\item_calendar_month_day.xml",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\item_calendar_month_day.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\activity_calendar.xml",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_calendar.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/activity_edit_profile.xml",
+        "source": "com.example.myapplication.app-main-7:/layout/activity_edit_profile.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\popup_calendar_menu.xml",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\popup_calendar_menu.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/activity_login.xml",
+        "source": "com.example.myapplication.app-main-7:/layout/activity_login.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/activity_trash.xml",
+        "source": "com.example.myapplication.app-main-7:/layout/activity_trash.xml"
+    },
+    {
         "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\activity_sign_up.xml",
         "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_sign_up.xml"
     },
     {
-        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\activity_change_password.xml",
-        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_change_password.xml"
+        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/activity_calendar.xml",
+        "source": "com.example.myapplication.app-main-7:/layout/activity_calendar.xml"
     },
     {
         "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\activity_trash.xml",
@@ -52,39 +92,35 @@
         "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\item_conversation_bubble.xml"
     },
     {
-        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\activity_settings.xml",
-        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_settings.xml"
+        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/activity_home.xml",
+        "source": "com.example.myapplication.app-main-7:/layout/activity_home.xml"
     },
     {
-        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\activity_main.xml",
-        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_main.xml"
+        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/activity_main.xml",
+        "source": "com.example.myapplication.app-main-7:/layout/activity_main.xml"
     },
     {
-        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\item_calendar_month_day.xml",
-        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\item_calendar_month_day.xml"
-    },
-    {
-        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/popup_home_menu.xml",
-        "source": "com.example.myapplication.app-main-7:/layout/popup_home_menu.xml"
+        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/activity_splash.xml",
+        "source": "com.example.myapplication.app-main-7:/layout/activity_splash.xml"
     },
     {
         "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\popup_home_menu.xml",
         "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\popup_home_menu.xml"
     },
     {
+        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/activity_settings.xml",
+        "source": "com.example.myapplication.app-main-7:/layout/activity_settings.xml"
+    },
+    {
         "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\activity_edit_profile.xml",
         "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_edit_profile.xml"
     },
     {
-        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/popup_calendar_menu.xml",
-        "source": "com.example.myapplication.app-main-7:/layout/popup_calendar_menu.xml"
-    },
-    {
-        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\activity_calendar.xml",
-        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_calendar.xml"
-    },
-    {
         "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-mergeDebugResources-4:\\layout\\item_calendar_record.xml",
         "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\item_calendar_record.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-4:/layout/activity_change_password.xml",
+        "source": "com.example.myapplication.app-main-7:/layout/activity_change_password.xml"
     }
 ]

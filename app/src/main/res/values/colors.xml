@@ -12,4 +12,10 @@
     <color name="muton_warning">#D32F2F</color>
     <color name="muton_green">#1A9B6F</color>
     <color name="muton_gold">#F4C542</color>
+    <color name="muton_screen_bg">#FFFFFF</color>
+    <color name="muton_surface">#FFFFFF</color>
+    <color name="muton_surface_soft">#F3F3F3</color>
+    <color name="muton_surface_elevated">#F2F2F2</color>
+    <color name="muton_back_button_bg">#E6FFFFFF</color>
+    <color name="muton_overlay_surface">#12FFFFFF</color>
 </resources>

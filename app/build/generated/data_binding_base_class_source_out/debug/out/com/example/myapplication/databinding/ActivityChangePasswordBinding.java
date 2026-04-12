@@ -45,13 +45,17 @@ public final class ActivityChangePasswordBinding implements ViewBinding {
   public final EditText inputNewPassword;
 
   @NonNull
+  public final TextView txtPasswordMismatch;
+
+  @NonNull
   public final TextView txtTitle;
 
   private ActivityChangePasswordBinding(@NonNull ConstraintLayout rootView,
       @NonNull LinearLayout backButton, @NonNull Button btnChange,
       @NonNull ImageView btnConfirmVisibility, @NonNull LinearLayout formWrap,
       @NonNull EditText inputConfirmPassword, @NonNull EditText inputCurrentPassword,
-      @NonNull EditText inputNewPassword, @NonNull TextView txtTitle) {
+      @NonNull EditText inputNewPassword, @NonNull TextView txtPasswordMismatch,
+      @NonNull TextView txtTitle) {
     this.rootView = rootView;
     this.backButton = backButton;
     this.btnChange = btnChange;
@@ -60,6 +64,7 @@ public final class ActivityChangePasswordBinding implements ViewBinding {
     this.inputConfirmPassword = inputConfirmPassword;
     this.inputCurrentPassword = inputCurrentPassword;
     this.inputNewPassword = inputNewPassword;
+    this.txtPasswordMismatch = txtPasswordMismatch;
     this.txtTitle = txtTitle;
   }
 
@@ -132,6 +137,12 @@ public final class ActivityChangePasswordBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.txtPasswordMismatch;
+      TextView txtPasswordMismatch = ViewBindings.findChildViewById(rootView, id);
+      if (txtPasswordMismatch == null) {
+        break missingId;
+      }
+
       id = R.id.txtTitle;
       TextView txtTitle = ViewBindings.findChildViewById(rootView, id);
       if (txtTitle == null) {
@@ -140,7 +151,7 @@ public final class ActivityChangePasswordBinding implements ViewBinding {
 
       return new ActivityChangePasswordBinding((ConstraintLayout) rootView, backButton, btnChange,
           btnConfirmVisibility, formWrap, inputConfirmPassword, inputCurrentPassword,
-          inputNewPassword, txtTitle);
+          inputNewPassword, txtPasswordMismatch, txtTitle);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

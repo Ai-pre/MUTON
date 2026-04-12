@@ -961,6 +961,7 @@
     <color name="mtrl_textinput_filled_box_default_background_color">#0A000000</color>
     <color name="mtrl_textinput_focused_box_stroke_color">#00000000</color>
     <color name="mtrl_textinput_hovered_box_stroke_color">#DE000000</color>
+    <color name="muton_back_button_bg">#E6FFFFFF</color>
     <color name="muton_bg">#F4F6FB</color>
     <color name="muton_calendar_weekday">#98A2B3</color>
     <color name="muton_card">#FFFFFFFF</color>
@@ -969,9 +970,14 @@
     <color name="muton_live_red">#FF5D5D</color>
     <color name="muton_muted">#667085</color>
     <color name="muton_overlay">#8C111827</color>
+    <color name="muton_overlay_surface">#12FFFFFF</color>
     <color name="muton_panel">#F3F3F3</color>
-    <color name="muton_primary">#E60055FF</color>
-    <color name="muton_primary_soft">#E8EEFF</color>
+    <color name="muton_primary">#4358F5</color>
+    <color name="muton_primary_soft">#EEF1FF</color>
+    <color name="muton_screen_bg">#FFFFFF</color>
+    <color name="muton_surface">#FFFFFF</color>
+    <color name="muton_surface_elevated">#F2F2F2</color>
+    <color name="muton_surface_soft">#F3F3F3</color>
     <color name="muton_text">#111827</color>
     <color name="muton_warning">#D32F2F</color>
     <color name="notification_action_color_filter">#ffffffff</color>
@@ -2294,6 +2300,7 @@
     <string name="splash_brand">muton</string>
     <string name="splash_mu">mu</string>
     <string name="splash_tagline">Read the room. Keep the tone warm.</string>
+    <string name="splash_ton">ton</string>
     <string name="start_label">START</string>
     <string name="status_bar_notification_info_overflow">999+</string>
     <string name="stop_label">STOP</string>

@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/white">
+    android:background="@color/muton_screen_bg">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -13,8 +13,8 @@
             android:id="@+id/logoCircle"
             android:layout_width="32dp"
             android:layout_height="32dp"
-            android:layout_marginStart="30dp"
-            android:layout_marginTop="54dp"
+            android:layout_marginStart="28dp"
+            android:layout_marginTop="72dp"
             android:background="@drawable/bg_home_logo_circle"
             android:clipToOutline="true"
             app:layout_constraintStart_toStartOf="parent"
@@ -40,8 +40,8 @@
             android:id="@+id/btnMenu"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="54dp"
-            android:layout_marginEnd="34dp"
+            android:layout_marginTop="72dp"
+            android:layout_marginEnd="28dp"
             android:text="&#8801;"
             android:textColor="@color/muton_text"
             android:textSize="18sp"
@@ -53,8 +53,8 @@
             android:id="@+id/txtGreeting"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="36dp"
-            android:layout_marginTop="140dp"
+            android:layout_marginStart="34dp"
+            android:layout_marginTop="180dp"
             android:layout_marginEnd="26dp"
             android:text="@string/home_greeting"
             android:textColor="@color/muton_text"
@@ -67,8 +67,8 @@
             android:id="@+id/sliderTrack"
             android:layout_width="0dp"
             android:layout_height="78dp"
-            android:layout_marginHorizontal="28dp"
-            android:layout_marginTop="26dp"
+            android:layout_marginHorizontal="30dp"
+            android:layout_marginTop="34dp"
             android:background="@drawable/bg_slider_track"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -81,7 +81,7 @@
                 android:layout_gravity="center"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:translationX="18dp">
+                android:translationX="12dp">
 
                 <TextView
                     android:id="@+id/txtSliderLabel"
@@ -126,9 +126,9 @@
         <LinearLayout
             android:id="@+id/sampleCard"
             android:layout_width="0dp"
-            android:layout_height="302dp"
-            android:layout_marginHorizontal="28dp"
-            android:layout_marginTop="22dp"
+            android:layout_height="278dp"
+            android:layout_marginHorizontal="30dp"
+            android:layout_marginTop="28dp"
             android:background="@drawable/bg_home_feature_panel"
             android:orientation="vertical"
             android:paddingHorizontal="18dp"
@@ -164,12 +164,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:layout_marginTop="14dp"
-                android:background="#9EB0FF" />
+                android:background="#8E4358F5" />
 
             <ScrollView
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_marginTop="16dp"
+                android:fillViewport="true"
                 android:layout_weight="1"
                 android:overScrollMode="ifContentScrolls"
                 android:scrollbars="none">

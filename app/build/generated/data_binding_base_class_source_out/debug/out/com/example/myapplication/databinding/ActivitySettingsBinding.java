@@ -5,7 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
-import android.widget.Spinner;
+import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -35,10 +35,10 @@ public final class ActivitySettingsBinding implements ViewBinding {
   public final LinearLayout rowEditProfile;
 
   @NonNull
-  public final LinearLayout settingList;
+  public final SeekBar seekTextSize;
 
   @NonNull
-  public final Spinner spinnerTextSize;
+  public final LinearLayout settingList;
 
   @NonNull
   public final Switch switchDarkMode;
@@ -52,15 +52,15 @@ public final class ActivitySettingsBinding implements ViewBinding {
   private ActivitySettingsBinding(@NonNull ConstraintLayout rootView,
       @NonNull LinearLayout backButton, @NonNull LinearLayout profileWrap,
       @NonNull LinearLayout rowChangePassword, @NonNull LinearLayout rowEditProfile,
-      @NonNull LinearLayout settingList, @NonNull Spinner spinnerTextSize,
+      @NonNull SeekBar seekTextSize, @NonNull LinearLayout settingList,
       @NonNull Switch switchDarkMode, @NonNull TextView txtLogout, @NonNull TextView txtUserName) {
     this.rootView = rootView;
     this.backButton = backButton;
     this.profileWrap = profileWrap;
     this.rowChangePassword = rowChangePassword;
     this.rowEditProfile = rowEditProfile;
+    this.seekTextSize = seekTextSize;
     this.settingList = settingList;
-    this.spinnerTextSize = spinnerTextSize;
     this.switchDarkMode = switchDarkMode;
     this.txtLogout = txtLogout;
     this.txtUserName = txtUserName;
@@ -117,15 +117,15 @@ public final class ActivitySettingsBinding implements ViewBinding {
         break missingId;
       }
 
-      id = R.id.settingList;
-      LinearLayout settingList = ViewBindings.findChildViewById(rootView, id);
-      if (settingList == null) {
+      id = R.id.seekTextSize;
+      SeekBar seekTextSize = ViewBindings.findChildViewById(rootView, id);
+      if (seekTextSize == null) {
         break missingId;
       }
 
-      id = R.id.spinnerTextSize;
-      Spinner spinnerTextSize = ViewBindings.findChildViewById(rootView, id);
-      if (spinnerTextSize == null) {
+      id = R.id.settingList;
+      LinearLayout settingList = ViewBindings.findChildViewById(rootView, id);
+      if (settingList == null) {
         break missingId;
       }
 
@@ -148,8 +148,8 @@ public final class ActivitySettingsBinding implements ViewBinding {
       }
 
       return new ActivitySettingsBinding((ConstraintLayout) rootView, backButton, profileWrap,
-          rowChangePassword, rowEditProfile, settingList, spinnerTextSize, switchDarkMode,
-          txtLogout, txtUserName);
+          rowChangePassword, rowEditProfile, seekTextSize, settingList, switchDarkMode, txtLogout,
+          txtUserName);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

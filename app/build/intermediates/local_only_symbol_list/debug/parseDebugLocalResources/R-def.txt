@@ -1,5 +1,6 @@
 R_DEF: Internal format may change without notice
 local
+color muton_back_button_bg
 color muton_bg
 color muton_calendar_weekday
 color muton_card
@@ -8,9 +9,14 @@ color muton_green
 color muton_live_red
 color muton_muted
 color muton_overlay
+color muton_overlay_surface
 color muton_panel
 color muton_primary
 color muton_primary_soft
+color muton_screen_bg
+color muton_surface
+color muton_surface_elevated
+color muton_surface_soft
 color muton_text
 color muton_warning
 drawable bg_action_circle
@@ -50,8 +56,12 @@ drawable bg_status_chip
 drawable bg_subtitle_panel
 drawable bg_text_size_spinner
 drawable ic_calendar_record_time
+drawable ic_terms_triangle
+drawable ic_voice_mic
+drawable ic_voice_stop
 drawable muton_logo
 id backButton
+id brandRow
 id brandStage
 id btnCalendarToggle
 id btnChange
@@ -87,7 +97,9 @@ id favoriteStar
 id favoriteTitle
 id formWrap
 id imgLogoAvatar
+id imgMicIcon
 id imgSplashLogo
+id imgTermsArrow
 id inputConfirmPassword
 id inputCurrentPassword
 id inputDisplayName
@@ -107,6 +119,7 @@ id monthGrid
 id monthHeaderStrip
 id monthRecordDots
 id monthTitle
+id muStage
 id nameWrap
 id panelGuide
 id profileWrap
@@ -119,12 +132,12 @@ id recordTitle
 id rowChangePassword
 id rowEditProfile
 id sampleCard
+id seekTextSize
 id selectedDayLabel
 id settingList
 id sliderTextGroup
 id sliderThumb
 id sliderTrack
-id spinnerTextSize
 id subtitleDivider
 id subtitlePanel
 id switchAllTerms
@@ -145,7 +158,6 @@ id txtFaceResult
 id txtGoSignUp
 id txtGreeting
 id txtLogout
-id txtMicIcon
 id txtNicknameDuplicate
 id txtOverlayTimer
 id txtPasswordMismatch
@@ -154,9 +166,10 @@ id txtRecordSample
 id txtRecordTitle
 id txtSliderHint
 id txtSliderLabel
-id txtSplashBrand
-id txtSplashMu
-id txtTermsArrow
+id txtSplashMuBase
+id txtSplashMuOverlay
+id txtSplashTon
+id txtTermsTitle
 id txtTitle
 id txtTrashItemTime
 id txtTrashItemTitle
@@ -291,6 +304,7 @@ string signup_title
 string splash_brand
 string splash_mu
 string splash_tagline
+string splash_ton
 string start_label
 string stop_label
 string streaming_begin

@@ -2113,6 +2113,7 @@ color mtrl_textinput_disabled_color
 color mtrl_textinput_filled_box_default_background_color
 color mtrl_textinput_focused_box_stroke_color
 color mtrl_textinput_hovered_box_stroke_color
+color muton_back_button_bg
 color muton_bg
 color muton_calendar_weekday
 color muton_card
@@ -2121,9 +2122,14 @@ color muton_green
 color muton_live_red
 color muton_muted
 color muton_overlay
+color muton_overlay_surface
 color muton_panel
 color muton_primary
 color muton_primary_soft
+color muton_screen_bg
+color muton_surface
+color muton_surface_elevated
+color muton_surface_soft
 color muton_text
 color muton_warning
 color notification_action_color_filter
@@ -3128,6 +3134,9 @@ drawable ic_other_sign_in
 drawable ic_passkey
 drawable ic_password
 drawable ic_search_black_24
+drawable ic_terms_triangle
+drawable ic_voice_mic
+drawable ic_voice_stop
 drawable indeterminate_static
 drawable m3_avd_hide_password
 drawable m3_avd_show_password
@@ -3309,6 +3318,7 @@ id bounce
 id bounceBoth
 id bounceEnd
 id bounceStart
+id brandRow
 id brandStage
 id browser_actions_header_text
 id browser_actions_menu_item_icon
@@ -3479,7 +3489,9 @@ id ignore
 id ignoreRequest
 id image
 id imgLogoAvatar
+id imgMicIcon
 id imgSplashLogo
+id imgTermsArrow
 id immediateStop
 id included
 id indeterminate
@@ -3579,6 +3591,7 @@ id mtrl_picker_text_input_range_end
 id mtrl_picker_text_input_range_start
 id mtrl_picker_title_text
 id mtrl_view_tag_bottom_padding
+id muStage
 id multiply
 id nameWrap
 id navigation_bar_item_active_indicator_view
@@ -3679,6 +3692,7 @@ id search_mag_icon
 id search_plate
 id search_src_text
 id search_voice_btn
+id seekTextSize
 id select_dialog_listview
 id selected
 id selectedDayLabel
@@ -3704,7 +3718,6 @@ id snapMargins
 id south
 id spacer
 id special_effects_controller_view_tag
-id spinnerTextSize
 id spline
 id split_action_bar
 id spread
@@ -3795,7 +3808,6 @@ id txtFaceResult
 id txtGoSignUp
 id txtGreeting
 id txtLogout
-id txtMicIcon
 id txtNicknameDuplicate
 id txtOverlayTimer
 id txtPasswordMismatch
@@ -3804,9 +3816,10 @@ id txtRecordSample
 id txtRecordTitle
 id txtSliderHint
 id txtSliderLabel
-id txtSplashBrand
-id txtSplashMu
-id txtTermsArrow
+id txtSplashMuBase
+id txtSplashMuOverlay
+id txtSplashTon
+id txtTermsTitle
 id txtTitle
 id txtTrashItemTime
 id txtTrashItemTitle
@@ -4353,6 +4366,7 @@ string signup_title
 string splash_brand
 string splash_mu
 string splash_tagline
+string splash_ton
 string start_label
 string status_bar_notification_info_overflow
 string stop_label
