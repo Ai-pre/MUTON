@@ -34,14 +34,20 @@
 
         <ImageView
             android:id="@+id/btnCalendarToggle"
-            android:layout_width="0dp"
-            android:layout_height="18dp"
-            android:layout_weight="1"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:background="@drawable/bg_calendar_more_circle"
             android:clickable="true"
             android:contentDescription="@null"
             android:focusable="true"
+            android:padding="8dp"
+            android:scaleType="centerInside"
             android:src="@android:drawable/ic_menu_my_calendar"
             android:tint="@color/muton_text" />
+
+        <Space
+            android:layout_width="12dp"
+            android:layout_height="1dp" />
 
         <LinearLayout
             android:id="@+id/btnMoreMenu"
@@ -49,7 +55,6 @@
             android:layout_height="34dp"
             android:clickable="true"
             android:focusable="true"
-            android:background="@drawable/bg_calendar_more_circle"
             android:gravity="center">
 
             <TextView

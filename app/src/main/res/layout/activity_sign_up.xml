@@ -11,9 +11,9 @@
 
         <View
             android:id="@+id/logoMark"
-            android:layout_width="102dp"
-            android:layout_height="76dp"
-            android:layout_marginTop="126dp"
+            android:layout_width="94dp"
+            android:layout_height="70dp"
+            android:layout_marginTop="140dp"
             android:background="@drawable/bg_logo_mark"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -24,7 +24,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="44dp"
-            android:layout_marginTop="36dp"
+            android:layout_marginTop="50dp"
             android:orientation="vertical"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -35,10 +35,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_outline_pill"
-                android:hint="@string/signup_name"
+                android:hint="ID"
                 android:minHeight="0dp"
                 android:paddingHorizontal="16dp"
                 android:paddingVertical="9dp"
+                android:textColor="@color/muton_text"
+                android:textColorHint="@color/muton_muted"
                 android:textSize="14sp" />
 
             <TextView
@@ -63,6 +65,8 @@
                 android:minHeight="0dp"
                 android:paddingHorizontal="16dp"
                 android:paddingVertical="9dp"
+                android:textColor="@color/muton_text"
+                android:textColorHint="@color/muton_muted"
                 android:textSize="14sp" />
 
             <LinearLayout
@@ -84,6 +88,8 @@
                     android:hint="check password"
                     android:inputType="textPassword"
                     android:minHeight="0dp"
+                    android:textColor="@color/muton_text"
+                    android:textColorHint="@color/muton_muted"
                     android:textSize="14sp" />
 
                 <ImageView
@@ -116,18 +122,19 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <TextView
-                    android:id="@+id/txtTermsArrow"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="v"
-                    android:textColor="@color/muton_muted"
-                    android:textSize="14sp" />
+                <ImageView
+                    android:id="@+id/imgTermsArrow"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_terms_triangle"
+                    android:tint="@color/muton_muted" />
 
                 <TextView
+                    android:id="@+id/txtTermsTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="10dp"
                     android:text="@string/terms_all"
                     android:textColor="@color/muton_muted"
                     android:textSize="15sp" />
@@ -145,8 +152,8 @@
                 android:id="@+id/termsDetailWrap"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="28dp"
-                android:layout_marginTop="8dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginTop="10dp"
                 android:orientation="vertical"
                 android:visibility="gone">
 
@@ -167,7 +174,7 @@
                         android:id="@+id/switchMicPermission"
                         android:layout_width="20dp"
                         android:layout_height="20dp"
-                        android:layout_marginStart="10dp"
+                        android:layout_marginStart="14dp"
                         android:background="@drawable/bg_permission_circle"
                         android:button="@null" />
                 </LinearLayout>
@@ -190,7 +197,7 @@
                         android:id="@+id/switchCameraPermission"
                         android:layout_width="20dp"
                         android:layout_height="20dp"
-                        android:layout_marginStart="10dp"
+                        android:layout_marginStart="14dp"
                         android:background="@drawable/bg_permission_circle"
                         android:button="@null" />
                 </LinearLayout>
@@ -261,21 +268,19 @@
 
             <LinearLayout
                 android:id="@+id/btnMicRecord"
-                android:layout_width="112dp"
-                android:layout_height="112dp"
-                android:layout_marginTop="26dp"
+                android:layout_width="76dp"
+                android:layout_height="76dp"
+                android:layout_marginTop="24dp"
                 android:background="@drawable/bg_mic_button"
                 android:gravity="center"
                 android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/txtMicIcon"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="mic"
-                    android:textColor="@android:color/white"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
+                <ImageView
+                    android:id="@+id/imgMicIcon"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_voice_mic" />
             </LinearLayout>
 
             <Button

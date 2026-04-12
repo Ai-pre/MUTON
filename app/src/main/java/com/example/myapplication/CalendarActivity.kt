@@ -70,6 +70,7 @@ class CalendarActivity : BaseActivity() {
 
     private fun renderCalendarMode() {
         updateMonthTitle()
+        renderTopActionSelection(isMoreSelected = false)
 
         if (isMonthMode) {
             renderMonthGrid()
@@ -317,6 +318,7 @@ class CalendarActivity : BaseActivity() {
     }
 
     private fun showMoreMenu() {
+        renderTopActionSelection(isMoreSelected = true)
         val popupView = LayoutInflater.from(this).inflate(R.layout.popup_calendar_menu, null, false)
         val popupWindow = PopupWindow(
             popupView,
@@ -330,6 +332,9 @@ class CalendarActivity : BaseActivity() {
         )
         popupWindow.elevation = 0f
         popupWindow.isOutsideTouchable = true
+        popupWindow.setOnDismissListener {
+            renderTopActionSelection(isMoreSelected = false)
+        }
 
         popupView.findViewById<View>(R.id.menuTodayRow).setOnClickListener {
             popupWindow.dismiss()
@@ -344,7 +349,18 @@ class CalendarActivity : BaseActivity() {
             startActivity(Intent(this, HomeActivity::class.java))
         }
 
-        popupWindow.showAsDropDown(binding.btnMoreMenu, -88.dp(), 8.dp())
+        popupWindow.showAsDropDown(binding.btnMoreMenu, -88.dp(), 14.dp())
+    }
+
+    private fun renderTopActionSelection(isMoreSelected: Boolean) {
+        binding.btnCalendarToggle.background = ContextCompat.getDrawable(
+            this,
+            if (isMoreSelected) android.R.color.transparent else R.drawable.bg_calendar_more_circle,
+        )
+        binding.btnMoreMenu.background = ContextCompat.getDrawable(
+            this,
+            if (isMoreSelected) R.drawable.bg_calendar_more_circle else android.R.color.transparent,
+        )
     }
 
     private fun bindWeekSwipeGesture() {

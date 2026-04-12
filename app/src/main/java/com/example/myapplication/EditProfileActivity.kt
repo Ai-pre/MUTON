@@ -32,7 +32,7 @@ class EditProfileActivity : BaseActivity() {
             runOnUiThread {
                 val displayName = profile.displayName.ifBlank { fallbackName }
                 binding.txtUserName.text = displayName
-                binding.inputDisplayName.setText(displayName)
+                binding.inputDisplayName.setText("")
             }
         }
     }

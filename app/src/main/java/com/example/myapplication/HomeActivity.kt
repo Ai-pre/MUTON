@@ -129,14 +129,15 @@ class HomeActivity : BaseActivity() {
             startActivity(Intent(this@HomeActivity, TrashActivity::class.java))
         }
 
-        popupWindow.showAsDropDown(binding.btnMenu, -100.dp(), 8.dp())
+        popupWindow.showAsDropDown(binding.btnMenu, -116.dp(), 8.dp())
     }
 
     private fun renderFavorites() {
-        val favorites = ConversationRecordStore.getFavoriteRecords(this, 3)
+        val favorites = ConversationRecordStore.getFavoriteRecords(this, null)
         binding.favoriteList.removeAllViews()
 
         if (favorites.isEmpty()) {
+            (binding.emptyFavoriteText.parent as? android.view.ViewGroup)?.removeView(binding.emptyFavoriteText)
             binding.emptyFavoriteText.visibility = android.view.View.VISIBLE
             binding.favoriteList.addView(binding.emptyFavoriteText)
             return

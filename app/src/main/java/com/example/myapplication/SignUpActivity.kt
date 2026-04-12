@@ -92,13 +92,14 @@ class SignUpActivity : BaseActivity() {
         binding.termsHeader.setOnClickListener {
             toggleTermsSection()
         }
+        renderTermsArrow(isExpanded = false)
 
         binding.switchAllTerms.setOnCheckedChangeListener { _, isChecked ->
             if (syncingAllTerms) return@setOnCheckedChangeListener
 
             if (binding.termsDetailWrap.visibility != View.VISIBLE) {
                 binding.termsDetailWrap.visibility = View.VISIBLE
-                binding.txtTermsArrow.text = "^"
+                renderTermsArrow(isExpanded = true)
             }
 
             if (isChecked) {
@@ -150,7 +151,11 @@ class SignUpActivity : BaseActivity() {
     private fun toggleTermsSection() {
         val expanded = binding.termsDetailWrap.visibility == View.VISIBLE
         binding.termsDetailWrap.visibility = if (expanded) View.GONE else View.VISIBLE
-        binding.txtTermsArrow.text = if (expanded) "v" else "^"
+        renderTermsArrow(isExpanded = !expanded)
+    }
+
+    private fun renderTermsArrow(isExpanded: Boolean) {
+        binding.imgTermsArrow.rotation = if (isExpanded) 90f else 0f
     }
 
     private fun requestMicIfNeeded() {
@@ -189,7 +194,7 @@ class SignUpActivity : BaseActivity() {
     private fun showVoicePopup() {
         binding.voiceOverlay.visibility = View.VISIBLE
         binding.txtRecordTitle.setText(R.string.record_title)
-        binding.txtMicIcon.text = "mic"
+        binding.imgMicIcon.setImageResource(R.drawable.ic_voice_mic)
     }
 
     private fun hideVoicePopup() {
@@ -218,7 +223,7 @@ class SignUpActivity : BaseActivity() {
         binding.txtOverlayTimer.base = SystemClock.elapsedRealtime()
         binding.txtOverlayTimer.start()
         binding.txtRecordTitle.setText(R.string.recording_now)
-        binding.txtMicIcon.text = "stop"
+        binding.imgMicIcon.setImageResource(R.drawable.ic_voice_stop)
     }
 
     private fun stopRecordingOnly() {
@@ -233,7 +238,7 @@ class SignUpActivity : BaseActivity() {
         binding.txtOverlayTimer.stop()
         binding.txtOverlayTimer.base = SystemClock.elapsedRealtime()
         binding.txtRecordTitle.setText(R.string.record_title)
-        binding.txtMicIcon.text = "mic"
+        binding.imgMicIcon.setImageResource(R.drawable.ic_voice_mic)
     }
 
     private fun stopRecordingAndDismiss() {

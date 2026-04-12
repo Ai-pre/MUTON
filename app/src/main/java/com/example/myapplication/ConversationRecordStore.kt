@@ -175,13 +175,18 @@ object ConversationRecordStore {
         return loadRecords(context, dateKey).firstOrNull { it.createdAt == createdAt }
     }
 
-    fun getFavoriteRecords(context: Context, limit: Int = 3): List<ConversationRecord> {
-        return prefs(context).all.keys
+    fun getFavoriteRecords(context: Context, limit: Int? = 3): List<ConversationRecord> {
+        val favorites = prefs(context).all.keys
             .sorted()
             .flatMap { key -> loadRecords(context, key) }
             .filter { it.isFavorite && !it.isTrashed }
             .sortedByDescending { it.createdAt }
-            .take(limit)
+
+        return if (limit == null) {
+            favorites
+        } else {
+            favorites.take(limit)
+        }
     }
 
     fun getTodayLabel(): String {

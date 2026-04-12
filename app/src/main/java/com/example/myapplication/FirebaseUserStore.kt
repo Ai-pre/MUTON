@@ -156,4 +156,29 @@ object FirebaseUserStore {
             }
             .addOnFailureListener(onFailure)
     }
+
+    fun loadAuthEmail(
+        context: Context,
+        onResult: (String?) -> Unit,
+    ) {
+        val user = FirebaseAuth.getInstance().currentUser
+        val fallbackEmail = user?.email
+        val uid = user?.uid
+
+        if (uid.isNullOrBlank() || !isConfigured(context)) {
+            onResult(fallbackEmail)
+            return
+        }
+
+        FirebaseFirestore.getInstance()
+            .collection("users")
+            .document(uid)
+            .get()
+            .addOnSuccessListener { document ->
+                onResult(document.getString("authEmail").orEmpty().ifBlank { fallbackEmail })
+            }
+            .addOnFailureListener {
+                onResult(fallbackEmail)
+            }
+    }
 }

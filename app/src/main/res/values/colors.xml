@@ -1,8 +1,8 @@
 <resources>
     <color name="muton_bg">#F4F6FB</color>
     <color name="muton_card">#FFFFFFFF</color>
-    <color name="muton_primary">#E60055FF</color>
-    <color name="muton_primary_soft">#E8EEFF</color>
+    <color name="muton_primary">#4358F5</color>
+    <color name="muton_primary_soft">#EEF1FF</color>
     <color name="muton_panel">#F3F3F3</color>
     <color name="muton_text">#111827</color>
     <color name="muton_muted">#667085</color>

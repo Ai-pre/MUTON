@@ -2,9 +2,7 @@ package com.example.myapplication
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
+import android.widget.SeekBar
 import com.google.firebase.auth.FirebaseAuth
 import com.example.myapplication.databinding.ActivitySettingsBinding
 
@@ -30,21 +28,13 @@ class SettingsActivity : BaseActivity() {
             finishAffinity()
         }
 
-        val sizeOptions = listOf("small", "medium", "large")
-        binding.spinnerTextSize.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_dropdown_item,
-            sizeOptions,
-        )
-
         val currentOption = AppTextScaleManager.getTextSizeOption(this)
-        binding.spinnerTextSize.setSelection(
-            AppTextScaleManager.TextSizeOption.entries.indexOf(currentOption),
-            false,
-        )
-        binding.spinnerTextSize.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val selectedOption = AppTextScaleManager.TextSizeOption.entries[position]
+        binding.seekTextSize.progress = AppTextScaleManager.TextSizeOption.entries.indexOf(currentOption)
+        binding.seekTextSize.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+
+                val selectedOption = AppTextScaleManager.TextSizeOption.entries[progress]
                 if (selectedOption == AppTextScaleManager.getTextSizeOption(this@SettingsActivity)) {
                     return
                 }
@@ -53,8 +43,10 @@ class SettingsActivity : BaseActivity() {
                 recreate()
             }
 
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-        }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
     }
 
     override fun onResume() {

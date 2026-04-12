@@ -2,7 +2,7 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_pressed="true">
         <shape android:shape="oval">
-            <solid android:color="#5271FF" />
+    <solid android:color="@color/muton_primary" />
         </shape>
     </item>
     <item>
@@ -10,7 +10,7 @@
             <solid android:color="#E7E8EC" />
             <stroke
                 android:width="2dp"
-                android:color="#5271FF" />
+        android:color="@color/muton_primary" />
         </shape>
     </item>
 </selector>

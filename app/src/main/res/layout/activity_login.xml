@@ -7,8 +7,8 @@
 
     <View
         android:id="@+id/logoMark"
-        android:layout_width="102dp"
-        android:layout_height="76dp"
+        android:layout_width="94dp"
+        android:layout_height="70dp"
         android:layout_marginTop="196dp"
         android:background="@drawable/bg_logo_mark"
         app:layout_constraintEnd_toEndOf="parent"
