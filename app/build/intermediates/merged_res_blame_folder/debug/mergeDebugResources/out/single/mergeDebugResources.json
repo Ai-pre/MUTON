@@ -1,0 +1,294 @@
+[
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_item_home_favorite.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\item_home_favorite.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_calendar_selected_month_day.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_calendar_selected_month_day.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_capture_button.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_capture_button.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_activity_settings.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_settings.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_activity_main.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_main.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-night_bg_calendar_record.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-night\\bg_calendar_record.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_activity_home.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_home.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-night_bg_settings_avatar.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-night\\bg_settings_avatar.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_status_chip.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_status_chip.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_popup_home_menu.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\popup_home_menu.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_item_calendar_day.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\item_calendar_day.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_home_menu_popup.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_home_menu_popup.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-night_bg_camera_overlay_soft.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-night\\bg_camera_overlay_soft.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_calendar_selected_day.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_calendar_selected_day.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_activity_change_password.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_change_password.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-night_bg_calendar_more_circle.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-night\\bg_calendar_more_circle.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-night_bg_calendar_action_group.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-night\\bg_calendar_action_group.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-night_bg_back_button.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-night\\bg_back_button.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_settings_avatar.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_settings_avatar.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_calendar_record.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_calendar_record.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_live_dot.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_live_dot.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-night_bg_home_menu_popup.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-night\\bg_home_menu_popup.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_capture_inner.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_capture_inner.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_permission_circle.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_permission_circle.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_soft_pill.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_soft_pill.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_home_feature_panel.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_home_feature_panel.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_calendar_action_group.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_calendar_action_group.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_item_conversation_bubble.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\item_conversation_bubble.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-night_bg_camera_status_chip.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-night\\bg_camera_status_chip.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-nodpi_muton_logo.png.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-nodpi\\muton_logo.png"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_activity_sign_up.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_sign_up.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_item_calendar_record.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\item_calendar_record.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_overlay_card.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_overlay_card.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_input.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_input.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_slider_track.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_slider_track.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_back_button.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_back_button.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_outline_pill.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_outline_pill.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_home_logo_circle.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_home_logo_circle.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_activity_record_detail.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_record_detail.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_subtitle_panel.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_subtitle_panel.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_logo_mark.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_logo_mark.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_bubble_primary.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_bubble_primary.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-debug-5:/layout_popup_calendar_menu.xml.flat",
+        "source": "com.example.myapplication.app-main-7:/layout/popup_calendar_menu.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_small_pill_outline.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_small_pill_outline.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-night_bg_camera_bubble_light.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-night\\bg_camera_bubble_light.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_feature_card.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_feature_card.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_camera_bubble_dark.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_camera_bubble_dark.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-night_bg_slider_track.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-night\\bg_slider_track.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_camera_overlay_soft.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_camera_overlay_soft.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-debug-5:/layout_popup_home_menu.xml.flat",
+        "source": "com.example.myapplication.app-main-7:/layout/popup_home_menu.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_login_card.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_login_card.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_activity_calendar.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_calendar.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_ic_calendar_record_time.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\ic_calendar_record_time.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_camera_status_chip.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_camera_status_chip.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-debug-5:/drawable_bg_home_menu_popup.xml.flat",
+        "source": "com.example.myapplication.app-main-7:/drawable/bg_home_menu_popup.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_activity_edit_profile.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_edit_profile.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_action_circle.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_action_circle.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-night_bg_action_circle.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-night\\bg_action_circle.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_item_trash_record.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\item_trash_record.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_camera_stop_button.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_camera_stop_button.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_item_record_detail_bubble.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\item_record_detail_bubble.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_mic_button.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_mic_button.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_camera_bubble_light.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_camera_bubble_light.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_activity_login.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_login.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_calendar_handle.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_calendar_handle.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_activity_splash.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_splash.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_text_size_spinner.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_text_size_spinner.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_calendar_more_circle.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_calendar_more_circle.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_activity_trash.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\activity_trash.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable_bg_record_dot.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable\\bg_record_dot.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\drawable-night_bg_camera_bubble_dark.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\drawable-night\\bg_camera_bubble_dark.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_item_calendar_month_day.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\item_calendar_month_day.xml"
+    },
+    {
+        "merged": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-debug-5:\\layout_popup_calendar_menu.xml.flat",
+        "source": "C:\\Users\\chohy\\.gradle\\daemon\\9.0.0\\com.example.myapplication.app-main-7:\\layout\\popup_calendar_menu.xml"
+    }
+]

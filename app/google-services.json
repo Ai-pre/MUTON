@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "170942233719",
+    "project_id": "muton-11bf1",
+    "storage_bucket": "muton-11bf1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:170942233719:android:5252b303a00cb290c71a72",
+        "android_client_info": {
+          "package_name": "com.example.myapplication"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC0CqucBIYrhjznvuDTVp4tqVvWqKf9IqU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

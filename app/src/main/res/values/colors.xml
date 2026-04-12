@@ -1,0 +1,15 @@
+<resources>
+    <color name="muton_bg">#F4F6FB</color>
+    <color name="muton_card">#FFFFFFFF</color>
+    <color name="muton_primary">#E60055FF</color>
+    <color name="muton_primary_soft">#E8EEFF</color>
+    <color name="muton_panel">#F3F3F3</color>
+    <color name="muton_text">#111827</color>
+    <color name="muton_muted">#667085</color>
+    <color name="muton_calendar_weekday">#98A2B3</color>
+    <color name="muton_overlay">#8C111827</color>
+    <color name="muton_live_red">#FF5D5D</color>
+    <color name="muton_warning">#D32F2F</color>
+    <color name="muton_green">#1A9B6F</color>
+    <color name="muton_gold">#F4C542</color>
+</resources>

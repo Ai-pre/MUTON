@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gcm_defaultSenderId" translatable="false">170942233719</string>
+    <string name="google_api_key" translatable="false">AIzaSyC0CqucBIYrhjznvuDTVp4tqVvWqKf9IqU</string>
+    <string name="google_app_id" translatable="false">1:170942233719:android:5252b303a00cb290c71a72</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyC0CqucBIYrhjznvuDTVp4tqVvWqKf9IqU</string>
+    <string name="google_storage_bucket" translatable="false">muton-11bf1.firebasestorage.app</string>
+    <string name="project_id" translatable="false">muton-11bf1</string>
+</resources>
