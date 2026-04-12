@@ -611,12 +611,9 @@ class AudioEncoder:
 
         raw_text, api_confidence = self._transcribe_with_openai(waveform)
         filtered_text = self._filter_transcript(raw_text or "")
-        heuristic_confidence = self._estimate_transcript_confidence(filtered_text or "", waveform, float(full_energy))
-        confidence = max(api_confidence, heuristic_confidence)
-
-        if filtered_text and confidence < self.min_transcript_confidence:
-            print(f"Discarded because OpenAI transcript confidence is too low (conf={confidence:.2f}, text={filtered_text})")
-            return None, waveform, confidence
+        # For the OpenAI Whisper path, trust the API confidence signal and
+        # keep the old behavior closer to the initial implementation.
+        confidence = api_confidence if filtered_text else 0.0
         if filtered_text:
             print(f"OpenAI Whisper transcript: {filtered_text} (conf={confidence:.2f})")
         return filtered_text, waveform, confidence
