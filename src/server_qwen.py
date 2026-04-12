@@ -172,7 +172,6 @@ def _generate_from_messages(
         add_generation_prompt=True,
         return_dict=True,
         return_tensors="pt",
-        padding=True,
     )
     inputs = {key: value.to(_model.device) if torch.is_tensor(value) else value for key, value in dict(inputs).items()}
 
