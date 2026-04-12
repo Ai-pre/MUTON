@@ -226,6 +226,7 @@ class AudioEncoder:
     def __init__(self, device: str = DEVICE):
         self.device = device
         self.sample_rate = 16000
+        self.runtime_stt_backend = os.environ.get("MUTON_QWEN_STT_BACKEND", "whisper").strip().lower()
 
         self.audio_buffer = bytearray()
         self.stt_model_name = os.environ.get(
@@ -262,46 +263,52 @@ class AudioEncoder:
             "float32": torch.float32,
         }.get(stt_dtype_name, torch.float16 if self.stt_device.startswith("cuda") else torch.float32)
 
-        print(f"Loading Korean Whisper STT ({self.stt_model_name})...")
-        self.stt_processor = AutoProcessor.from_pretrained(self.stt_model_name)
-        self.stt_model = AutoModelForSpeechSeq2Seq.from_pretrained(
-            self.stt_model_name,
-            torch_dtype=self.stt_torch_dtype,
-            low_cpu_mem_usage=True,
-            use_safetensors=True,
-        ).to(self.stt_device).eval()
-        # Older Whisper checkpoints often carry max_length=20 in generation config,
-        # which triggers noisy warnings when we drive decoding with max_new_tokens.
-        try:
-            self.stt_model.generation_config.max_length = None
-            self.stt_model.generation_config.max_new_tokens = None
-        except Exception:
-            pass
-        try:
-            self.stt_processor.tokenizer.set_prefix_tokens(
-                language=self.stt_language,
-                task="transcribe",
+        self.stt_processor = None
+        self.stt_model = None
+        self.stt_pipe = None
+        if self.runtime_stt_backend != "openai":
+            print(f"Loading Korean Whisper STT ({self.stt_model_name})...")
+            self.stt_processor = AutoProcessor.from_pretrained(self.stt_model_name)
+            self.stt_model = AutoModelForSpeechSeq2Seq.from_pretrained(
+                self.stt_model_name,
+                torch_dtype=self.stt_torch_dtype,
+                low_cpu_mem_usage=True,
+                use_safetensors=True,
+            ).to(self.stt_device).eval()
+            # Older Whisper checkpoints often carry max_length=20 in generation config,
+            # which triggers noisy warnings when we drive decoding with max_new_tokens.
+            try:
+                self.stt_model.generation_config.max_length = None
+                self.stt_model.generation_config.max_new_tokens = None
+            except Exception:
+                pass
+            try:
+                self.stt_processor.tokenizer.set_prefix_tokens(
+                    language=self.stt_language,
+                    task="transcribe",
+                )
+            except Exception:
+                pass
+
+            pipeline_device = -1
+            if self.stt_device.startswith("cuda"):
+                pipeline_device = int(self.stt_device.split(":", 1)[1]) if ":" in self.stt_device else 0
+
+            self.stt_pipe = pipeline(
+                "automatic-speech-recognition",
+                model=self.stt_model,
+                tokenizer=self.stt_processor.tokenizer,
+                feature_extractor=self.stt_processor.feature_extractor,
+                torch_dtype=self.stt_torch_dtype,
+                device=pipeline_device,
             )
-        except Exception:
-            pass
-
-        pipeline_device = -1
-        if self.stt_device.startswith("cuda"):
-            pipeline_device = int(self.stt_device.split(":", 1)[1]) if ":" in self.stt_device else 0
-
-        self.stt_pipe = pipeline(
-            "automatic-speech-recognition",
-            model=self.stt_model,
-            tokenizer=self.stt_processor.tokenizer,
-            feature_extractor=self.stt_processor.feature_extractor,
-            torch_dtype=self.stt_torch_dtype,
-            device=pipeline_device,
-        )
-        try:
-            self.stt_pipe.model.generation_config.max_length = None
-            self.stt_pipe.model.generation_config.max_new_tokens = None
-        except Exception:
-            pass
+            try:
+                self.stt_pipe.model.generation_config.max_length = None
+                self.stt_pipe.model.generation_config.max_new_tokens = None
+            except Exception:
+                pass
+        else:
+            print("Skipping local Korean Whisper STT load because MUTON_QWEN_STT_BACKEND=openai")
 
         print("Loading Silero VAD...")
         self.vad_model, _utils = torch.hub.load(
@@ -572,7 +579,7 @@ class AudioEncoder:
         return filtered_text or None
 
     def _transcribe_waveform(self, waveform: np.ndarray) -> Optional[str]:
-        if waveform.size == 0:
+        if waveform.size == 0 or self.stt_pipe is None:
             return None
 
         try:
