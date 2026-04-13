@@ -1,7 +1,7 @@
 # MUTON_cpy
 
 MUTON is a multimodal conversation-assistance research project for people with hearing loss.  
-This repository combines face, audio, and text signals to estimate emotion, arousal, valence, and a short context summary.
+This repository combines face, audio, and text signals to estimate emotion, arousal, valence, and a short summary.
 
 ## Repository Overview
 
