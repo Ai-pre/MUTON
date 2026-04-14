@@ -28,6 +28,18 @@
             android:textStyle="bold" />
     </LinearLayout>
 
+    <ImageView
+        android:id="@+id/btnMoveToTrash"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_marginTop="36dp"
+        android:layout_marginEnd="22dp"
+        android:contentDescription="@null"
+        android:src="@android:drawable/ic_menu_delete"
+        android:tint="@color/muton_text"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <ScrollView
         android:id="@+id/detailScroll"
         android:layout_width="0dp"
@@ -103,16 +115,6 @@
                 android:layout_marginTop="18dp"
                 android:orientation="vertical" />
 
-            <ImageView
-                android:id="@+id/btnMoveToTrash"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:layout_gravity="end"
-                android:layout_marginTop="26dp"
-                android:layout_marginEnd="6dp"
-                android:contentDescription="@null"
-                android:src="@android:drawable/ic_menu_delete"
-                android:tint="@color/muton_text" />
         </LinearLayout>
     </ScrollView>
 

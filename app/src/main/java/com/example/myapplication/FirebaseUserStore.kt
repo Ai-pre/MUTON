@@ -1,10 +1,13 @@
 package com.example.myapplication
 
 import android.content.Context
+import android.net.Uri
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
+import java.io.File
 
 object FirebaseUserStore {
     data class UserProfile(
@@ -22,6 +25,7 @@ object FirebaseUserStore {
         context: Context,
         identifier: String,
         password: String,
+        voiceSampleFile: File? = null,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit,
     ) {
@@ -37,12 +41,7 @@ object FirebaseUserStore {
             .createUserWithEmailAndPassword(authEmail, password)
             .addOnSuccessListener { result ->
                 val uid = result.user?.uid.orEmpty()
-                val user = mapOf(
-                    "uid" to uid,
-                    "displayName" to displayName,
-                    "authEmail" to authEmail,
-                    "createdAt" to System.currentTimeMillis(),
-                )
+                val createdAt = System.currentTimeMillis()
 
                 val profileUpdates = UserProfileChangeRequest.Builder()
                     .setDisplayName(displayName)
@@ -50,16 +49,68 @@ object FirebaseUserStore {
 
                 result.user?.updateProfile(profileUpdates)
                     ?.addOnCompleteListener {
-                        FirebaseFirestore.getInstance()
-                            .collection("users")
-                            .document(uid)
-                            .set(user)
-                            .addOnSuccessListener { onSuccess() }
-                            .addOnFailureListener(onFailure)
+                        uploadVoiceSampleIfNeeded(
+                            uid = uid,
+                            voiceSampleFile = voiceSampleFile,
+                            onSuccess = { voiceSamplePath, voiceSampleUrl ->
+                                val user = mutableMapOf<String, Any>(
+                                    "uid" to uid,
+                                    "displayName" to displayName,
+                                    "authEmail" to authEmail,
+                                    "createdAt" to createdAt,
+                                )
+
+                                if (!voiceSamplePath.isNullOrBlank()) {
+                                    user["voiceSamplePath"] = voiceSamplePath
+                                }
+                                if (!voiceSampleUrl.isNullOrBlank()) {
+                                    user["voiceSampleUrl"] = voiceSampleUrl
+                                }
+
+                                FirebaseFirestore.getInstance()
+                                    .collection("users")
+                                    .document(uid)
+                                    .set(user)
+                                    .addOnSuccessListener { onSuccess() }
+                                    .addOnFailureListener(onFailure)
+                            },
+                            onFailure = onFailure,
+                        )
                     }
                     ?.addOnFailureListener(onFailure)
             }
             .addOnFailureListener(onFailure)
+    }
+
+    private fun uploadVoiceSampleIfNeeded(
+        uid: String,
+        voiceSampleFile: File?,
+        onSuccess: (String?, String?) -> Unit,
+        onFailure: (Exception) -> Unit,
+    ) {
+        if (voiceSampleFile == null || !voiceSampleFile.exists() || voiceSampleFile.length() <= 0L) {
+            onSuccess(null, null)
+            return
+        }
+
+        val voicePath = "users/$uid/voice/signup_voice_note.m4a"
+        val voiceRef = FirebaseStorage.getInstance().reference.child(voicePath)
+        val voiceUri = Uri.fromFile(voiceSampleFile)
+
+        voiceRef.putFile(voiceUri)
+            .continueWithTask { uploadTask ->
+                val exception = uploadTask.exception
+                if (exception != null) {
+                    throw exception
+                }
+                voiceRef.downloadUrl
+            }
+            .addOnSuccessListener { downloadUri ->
+                onSuccess(voicePath, downloadUri.toString())
+            }
+            .addOnFailureListener { error ->
+                onFailure(Exception(error))
+            }
     }
 
     fun signIn(

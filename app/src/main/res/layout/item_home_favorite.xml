@@ -22,16 +22,15 @@
             android:textSize="16sp" />
     </LinearLayout>
 
-    <TextView
+    <ImageView
         android:id="@+id/favoriteStar"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
         android:layout_marginStart="10dp"
         android:clickable="true"
+        android:contentDescription="@null"
         android:focusable="true"
-        android:gravity="center"
-        android:text="&#9733;"
-        android:textColor="@color/muton_gold"
-        android:textSize="20sp" />
+        android:src="@drawable/ic_favorite_star"
+        android:tint="@color/muton_gold" />
 
 </LinearLayout>

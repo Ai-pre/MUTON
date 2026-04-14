@@ -7,6 +7,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.GridLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.TextView
@@ -255,8 +256,8 @@ class CalendarActivity : BaseActivity() {
                 .inflate(R.layout.item_calendar_record, binding.recordContainer, false)
             card.findViewById<TextView>(R.id.recordTitle).text = record.title
             card.findViewById<TextView>(R.id.recordTime).text = record.timeRange
-            val star = card.findViewById<TextView>(R.id.recordStar)
-            star.setTextColor(
+            val star = card.findViewById<ImageView>(R.id.recordStar)
+            star.setColorFilter(
                 getColor(
                     if (record.isFavorite) R.color.muton_gold else android.R.color.white,
                 ),

@@ -159,6 +159,25 @@ object ConversationRecordStore {
         deleteRecordFromFirebase(context, dateKey, createdAt)
     }
 
+    fun restoreFromTrash(
+        context: Context,
+        dateKey: String,
+        createdAt: Long,
+        onComplete: (() -> Unit)? = null,
+    ) {
+        val records = loadRecords(context, dateKey).map { record ->
+            if (record.createdAt == createdAt) {
+                record.copy(isTrashed = false)
+            } else {
+                record
+            }
+        }
+        persistRecords(context, dateKey, records)
+        records.firstOrNull { it.createdAt == createdAt }?.let { record ->
+            updateRecordFlagsInFirebase(context, record, onComplete)
+        } ?: onComplete?.invoke()
+    }
+
     fun getTrashedRecords(context: Context): List<ConversationRecord> {
         return prefs(context).all.keys
             .sorted()
@@ -187,6 +206,37 @@ object ConversationRecordStore {
         } else {
             favorites.take(limit)
         }
+    }
+
+    fun getAllActiveRecords(context: Context): List<ConversationRecord> {
+        return prefs(context).all.keys
+            .sorted()
+            .flatMap { key -> loadRecords(context, key) }
+            .filterNot { it.isTrashed }
+            .sortedByDescending { it.createdAt }
+    }
+
+    fun updateRecordTitle(
+        context: Context,
+        dateKey: String,
+        createdAt: Long,
+        title: String,
+        onComplete: (() -> Unit)? = null,
+    ) {
+        val trimmedTitle = title.trim()
+        if (trimmedTitle.isBlank()) {
+            onComplete?.invoke()
+            return
+        }
+
+        val updatedRecords = loadRecords(context, dateKey).map { record ->
+            if (record.createdAt == createdAt) record.copy(title = trimmedTitle) else record
+        }
+        persistRecords(context, dateKey, updatedRecords)
+
+        updatedRecords.firstOrNull { it.createdAt == createdAt }?.let { record ->
+            updateRecordContentInFirebase(context, record, onComplete)
+        } ?: onComplete?.invoke()
     }
 
     fun getTodayLabel(): String {
@@ -271,7 +321,11 @@ object ConversationRecordStore {
             }
     }
 
-    private fun updateRecordFlagsInFirebase(context: Context, record: ConversationRecord) {
+    private fun updateRecordFlagsInFirebase(
+        context: Context,
+        record: ConversationRecord,
+        onComplete: (() -> Unit)? = null,
+    ) {
         val uid = currentUserUid(context) ?: return
 
         FirebaseFirestore.getInstance()
@@ -285,8 +339,37 @@ object ConversationRecordStore {
                     "isTrashed" to record.isTrashed,
                 ),
             )
+            .addOnSuccessListener {
+                onComplete?.invoke()
+            }
             .addOnFailureListener { error ->
                 Log.e(TAG, "Firebase record flag update failed: ${error.message}", error)
+                onComplete?.invoke()
+            }
+    }
+
+    private fun updateRecordContentInFirebase(
+        context: Context,
+        record: ConversationRecord,
+        onComplete: (() -> Unit)? = null,
+    ) {
+        val uid = currentUserUid(context) ?: run {
+            onComplete?.invoke()
+            return
+        }
+
+        FirebaseFirestore.getInstance()
+            .collection("users")
+            .document(uid)
+            .collection("records")
+            .document(record.firebaseDocumentId())
+            .update("title", record.title)
+            .addOnSuccessListener {
+                onComplete?.invoke()
+            }
+            .addOnFailureListener { error ->
+                Log.e(TAG, "Firebase record title update failed: ${error.message}", error)
+                onComplete?.invoke()
             }
     }
 

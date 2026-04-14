@@ -608,33 +608,65 @@ class MainActivity : BaseActivity() {
         val speech = latestSpeechText.trim()
         val summary = latestSummaryText.trim()
         val hasContent = speech.isNotBlank() || summary.isNotBlank()
+        val startedAt = if (sessionStartedAt == 0L) System.currentTimeMillis() else sessionStartedAt
+        val selfSpeech = conversationItems
+            .filter { isSelfSpeaker(it.speaker) }
+            .joinToString("\n") { it.speech }
+        val selfSummary = conversationItems
+            .filter { isSelfSpeaker(it.speaker) }
+            .mapNotNull { it.summary.takeIf(String::isNotBlank) }
+            .joinToString("\n")
+        val otherSpeech = conversationItems
+            .filterNot { isSelfSpeaker(it.speaker) }
+            .joinToString("\n") { it.speech }
+        val otherSummary = conversationItems
+            .filterNot { isSelfSpeaker(it.speaker) }
+            .mapNotNull { it.summary.takeIf(String::isNotBlank) }
+            .joinToString("\n")
+        val fallbackTitle = if (hasContent) {
+            summary.ifBlank { getString(R.string.calendar_fallback_title) }
+        } else {
+            getString(R.string.calendar_fallback_title)
+        }
+        val conversationForSummary = buildConversationForSummary()
 
         stopAllStreaming()
+        binding.txtFaceResult.text = getString(R.string.live_status_summary)
 
-        ConversationRecordStore.saveTodayRecord(
-            context = this,
-            title = if (hasContent) summary.ifBlank { getString(R.string.calendar_fallback_title) } else getString(R.string.calendar_fallback_title),
-            subtitle = if (hasContent) speech else "",
-            startedAt = if (sessionStartedAt == 0L) System.currentTimeMillis() else sessionStartedAt,
-            selfSpeech = conversationItems
-                .filter { isSelfSpeaker(it.speaker) }
-                .joinToString("\n") { it.speech },
-            selfSummary = conversationItems
-                .filter { isSelfSpeaker(it.speaker) }
-                .mapNotNull { it.summary.takeIf(String::isNotBlank) }
-                .joinToString("\n"),
-            otherSpeech = conversationItems
-                .filterNot { isSelfSpeaker(it.speaker) }
-                .joinToString("\n") { it.speech },
-            otherSummary = conversationItems
-                .filterNot { isSelfSpeaker(it.speaker) }
-                .mapNotNull { it.summary.takeIf(String::isNotBlank) }
-                .joinToString("\n"),
-        )
+        OpenAiSummaryService.summarizeConversation(conversationForSummary) { apiSummary ->
+            runOnUiThread {
+                ConversationRecordStore.saveTodayRecord(
+                    context = this,
+                    title = apiSummary ?: fallbackTitle,
+                    subtitle = if (hasContent) speech else "",
+                    startedAt = startedAt,
+                    selfSpeech = selfSpeech,
+                    selfSummary = selfSummary,
+                    otherSpeech = otherSpeech,
+                    otherSummary = otherSummary,
+                )
 
-        renderStoppedState()
-        startActivity(Intent(this, CalendarActivity::class.java))
-        finish()
+                renderStoppedState()
+                startActivity(Intent(this, CalendarActivity::class.java))
+                finish()
+            }
+        }
+    }
+
+    private fun buildConversationForSummary(): String {
+        return conversationItems.joinToString("\n") { turn ->
+            val speakerLabel = if (isSelfSpeaker(turn.speaker)) "나" else "상대"
+            val speech = turn.speech.trim()
+            val summary = turn.summary.trim()
+            buildString {
+                append("$speakerLabel: ")
+                append(speech)
+                if (summary.isNotBlank()) {
+                    append("\n감정/맥락 요약: ")
+                    append(summary)
+                }
+            }
+        }.trim()
     }
 
     private fun renderSpeechBubble(text: String, speaker: String) {

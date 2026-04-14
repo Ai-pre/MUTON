@@ -17,7 +17,7 @@
         android:orientation="vertical">
 
         <TextView
-            android:id="@+id/recordTitle"
+            android:id="@+id/txtRecordTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
@@ -27,27 +27,18 @@
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/recordTime"
+            android:id="@+id/txtRecordDate"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:drawableStart="@drawable/ic_calendar_record_time"
-            android:drawablePadding="6dp"
-            android:gravity="center_vertical"
             android:textColor="@color/muton_calendar_weekday"
             android:textSize="13sp" />
     </LinearLayout>
 
-    <ImageView
-        android:id="@+id/recordStar"
-        android:layout_width="22dp"
-        android:layout_height="22dp"
-        android:layout_marginStart="12dp"
-        android:clickable="true"
-        android:contentDescription="@null"
-        android:focusable="true"
-        android:layout_gravity="center_vertical"
-        android:src="@drawable/ic_favorite_star"
-        android:tint="#CCFFFFFF" />
+    <CheckBox
+        android:id="@+id/checkboxRecord"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:buttonTint="@color/muton_primary" />
 
 </LinearLayout>

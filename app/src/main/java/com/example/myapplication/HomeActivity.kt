@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.widget.ImageView
 import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -148,8 +149,7 @@ class HomeActivity : BaseActivity() {
             val row = LayoutInflater.from(this)
                 .inflate(R.layout.item_home_favorite, binding.favoriteList, false)
             row.findViewById<TextView>(R.id.favoriteTitle).text = record.title
-            row.findViewById<TextView>(R.id.favoriteStar).apply {
-                text = "\u2605"
+            row.findViewById<ImageView>(R.id.favoriteStar).apply {
                 setOnClickListener {
                     ConversationRecordStore.toggleFavorite(this@HomeActivity, record.dateKey, record.createdAt)
                     renderFavorites()
@@ -160,6 +160,7 @@ class HomeActivity : BaseActivity() {
                     Intent(this, RecordDetailActivity::class.java).apply {
                         putExtra(RecordDetailActivity.EXTRA_DATE_KEY, record.dateKey)
                         putExtra(RecordDetailActivity.EXTRA_CREATED_AT, record.createdAt)
+                        putExtra(RecordDetailActivity.EXTRA_RETURN_HOME, true)
                     },
                 )
             }

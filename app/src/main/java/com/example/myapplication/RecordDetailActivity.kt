@@ -3,6 +3,7 @@ package com.example.myapplication
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.example.myapplication.databinding.ActivityRecordDetailBinding
@@ -15,6 +16,8 @@ class RecordDetailActivity : BaseActivity() {
     private lateinit var binding: ActivityRecordDetailBinding
     private var dateKey: String = ""
     private var createdAt: Long = 0L
+    private var fromTrash: Boolean = false
+    private var returnHome: Boolean = false
     private val displayDateFormatter = SimpleDateFormat("yy년 M월 d일", Locale.KOREA)
     private val displayTimeFormatter = SimpleDateFormat("HH:mm", Locale.KOREA)
 
@@ -25,17 +28,35 @@ class RecordDetailActivity : BaseActivity() {
 
         dateKey = intent.getStringExtra(EXTRA_DATE_KEY).orEmpty()
         createdAt = intent.getLongExtra(EXTRA_CREATED_AT, 0L)
+        fromTrash = intent.getBooleanExtra(EXTRA_FROM_TRASH, false)
+        returnHome = intent.getBooleanExtra(EXTRA_RETURN_HOME, false)
 
         binding.backButton.setOnClickListener { finish() }
         binding.btnMoveToTrash.setOnClickListener {
-            ConversationRecordStore.moveToTrash(this, dateKey, createdAt)
-            startActivity(
-                Intent(this, CalendarActivity::class.java).apply {
-                    putExtra(CalendarActivity.EXTRA_SELECTED_DATE_KEY, dateKey)
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                },
-            )
-            finish()
+            if (fromTrash) {
+                ConversationRecordStore.restoreFromTrash(this, dateKey, createdAt) {
+                    runOnUiThread {
+                        finish()
+                    }
+                }
+            } else {
+                ConversationRecordStore.moveToTrash(this, dateKey, createdAt)
+                if (returnHome) {
+                    startActivity(
+                        Intent(this, HomeActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        },
+                    )
+                } else {
+                    startActivity(
+                        Intent(this, CalendarActivity::class.java).apply {
+                            putExtra(CalendarActivity.EXTRA_SELECTED_DATE_KEY, dateKey)
+                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        },
+                    )
+                }
+                finish()
+            }
         }
 
         renderRecord()
@@ -51,6 +72,9 @@ class RecordDetailActivity : BaseActivity() {
         binding.txtDetailTime.text = displayTimeFormatter.format(Date(record.createdAt))
         binding.txtDetailSummaryCard.text = record.title
         binding.detailConversationWrap.removeAllViews()
+        binding.btnMoveToTrash.setImageResource(
+            if (fromTrash) android.R.drawable.ic_menu_revert else android.R.drawable.ic_menu_delete,
+        )
 
         addBubbles(record.selfSpeech, record.selfSummary, true)
         addBubbles(record.otherSpeech, record.otherSummary, false)
@@ -82,7 +106,7 @@ class RecordDetailActivity : BaseActivity() {
 
             speechView.text = speechText
             summaryView.text = summaryText
-            summaryView.visibility = if (summaryText.isBlank()) android.view.View.GONE else android.view.View.VISIBLE
+            summaryView.visibility = if (summaryText.isBlank()) View.GONE else View.VISIBLE
 
             binding.detailConversationWrap.addView(bubble)
         }
@@ -91,5 +115,7 @@ class RecordDetailActivity : BaseActivity() {
     companion object {
         const val EXTRA_DATE_KEY = "extra_date_key"
         const val EXTRA_CREATED_AT = "extra_created_at"
+        const val EXTRA_FROM_TRASH = "extra_from_trash"
+        const val EXTRA_RETURN_HOME = "extra_return_home"
     }
 }

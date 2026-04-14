@@ -188,7 +188,11 @@ class SignUpActivity : BaseActivity() {
             binding.switchAllTerms.isChecked = allGranted
             syncingAllTerms = false
         }
-        binding.btnComplete.isEnabled = allGranted
+        binding.btnComplete.isEnabled = allGranted && hasRecordedVoiceSample()
+    }
+
+    private fun hasRecordedVoiceSample(): Boolean {
+        return outputFile?.exists() == true && outputFile?.length()?.let { it > 0L } == true && !isRecording
     }
 
     private fun showVoicePopup() {
@@ -224,6 +228,7 @@ class SignUpActivity : BaseActivity() {
         binding.txtOverlayTimer.start()
         binding.txtRecordTitle.setText(R.string.recording_now)
         binding.imgMicIcon.setImageResource(R.drawable.ic_voice_stop)
+        updateTermsState()
     }
 
     private fun stopRecordingOnly() {
@@ -239,6 +244,7 @@ class SignUpActivity : BaseActivity() {
         binding.txtOverlayTimer.base = SystemClock.elapsedRealtime()
         binding.txtRecordTitle.setText(R.string.record_title)
         binding.imgMicIcon.setImageResource(R.drawable.ic_voice_mic)
+        updateTermsState()
     }
 
     private fun stopRecordingAndDismiss() {
@@ -267,12 +273,20 @@ class SignUpActivity : BaseActivity() {
                 Toast.makeText(this, R.string.signup_password_mismatch, Toast.LENGTH_SHORT).show()
                 return
             }
+            !hasRecordedVoiceSample() -> {
+                Toast.makeText(this, R.string.signup_voice_required, Toast.LENGTH_SHORT).show()
+                if (binding.voiceOverlay.visibility != View.VISIBLE) {
+                    showVoicePopup()
+                }
+                return
+            }
         }
 
         FirebaseUserStore.signUp(
             context = this,
             identifier = identifier,
             password = password,
+            voiceSampleFile = outputFile?.takeIf { it.exists() && it.length() > 0L },
             onSuccess = {
                 hideVoicePopup()
                 startActivity(Intent(this, HomeActivity::class.java))
