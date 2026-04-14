@@ -36,6 +36,7 @@ QWEN_MODEL_NAME = env_str("MUTON_QWEN_MODEL_NAME", "Qwen/Qwen2.5-Omni-7B")
 QWEN_ADAPTER = str(env_path("MUTON_QWEN_ADAPTER", "out/qwen_omni_lora/ko_stage"))
 QWEN_MAX_NEW_TOKENS = int(env_str("MUTON_QWEN_MAX_NEW_TOKENS", "64"))
 QWEN_DTYPE = env_str("MUTON_QWEN_TORCH_DTYPE", "bfloat16")
+QWEN_DEVICE_MAP_MODE = env_str("MUTON_QWEN_DEVICE_MAP", "single").lower()
 QWEN_STT_BACKEND = env_str("MUTON_QWEN_STT_BACKEND", "whisper").lower()
 QWEN_STT_MAX_NEW_TOKENS = int(env_str("MUTON_QWEN_STT_MAX_NEW_TOKENS", "128"))
 QWEN_STT_USE_ADAPTER = env_str("MUTON_QWEN_STT_USE_ADAPTER", "false").lower() == "true"
@@ -56,6 +57,15 @@ def parse_torch_dtype(name: str) -> torch.dtype:
     if name not in mapping:
         raise ValueError(f"Unsupported torch dtype: {name}")
     return mapping[name]
+
+
+def resolve_qwen_device_map() -> Any:
+    if not torch.cuda.is_available():
+        return None
+    if QWEN_DEVICE_MAP_MODE == "auto":
+        return "auto"
+    # Single visible GPU is the stable default for LoRA loading in this repo.
+    return {"": 0}
 
 
 def map_visual_emotion_to_ko6(emotion: str) -> str:
@@ -130,11 +140,12 @@ app.add_middleware(
 )
 
 _torch_dtype = parse_torch_dtype(QWEN_DTYPE)
+_device_map = resolve_qwen_device_map()
 _processor = Qwen2_5OmniProcessor.from_pretrained(QWEN_ADAPTER if Path(QWEN_ADAPTER).exists() else QWEN_MODEL_NAME)
 _model = Qwen2_5OmniThinkerForConditionalGeneration.from_pretrained(
     QWEN_MODEL_NAME,
     torch_dtype=_torch_dtype,
-    device_map="auto",
+    device_map=_device_map,
 )
 if Path(QWEN_ADAPTER).exists():
     from peft import PeftModel
