@@ -37,12 +37,17 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.concurrent.thread
+import kotlin.math.max
 
 class MainActivity : BaseActivity() {
 
@@ -56,15 +61,18 @@ class MainActivity : BaseActivity() {
     companion object {
         private const val PERMISSION_REQUEST_CODE = 10
         private const val REMOTE_CONFIG_URL =
-            "https://raw.githubusercontent.com/Ai-pre/MUTON/refs/heads/server/backend_url.json"
+            "https://raw.githubusercontent.com/Ai-pre/MUTON/refs/heads/server_main/backend_url.json"
         private const val TAG = "BodyCamApp"
         private const val ENDPOINT_VIDEO = "/process_video_chunk"
         private const val ENDPOINT_FAST_AUDIO = "/process_audio_chunk"
         private const val ENDPOINT_SLOW_ANALYSIS = "/get_fusion_analysis"
+        private const val AUDIO_READ_SIZE = 6400
+        private const val AUDIO_SEND_SIZE = 32000
     }
 
     @Volatile
     private var serverBaseUrl: String? = null
+
     @Volatile
     private var isConfigLoading = false
 
@@ -78,6 +86,7 @@ class MainActivity : BaseActivity() {
     private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
     private val channelConfig = AudioFormat.CHANNEL_IN_MONO
     private val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+    private val audioBufferSize = max(bufferSize, AUDIO_SEND_SIZE * 2)
 
     private var isFrameSending = false
     private var lastSentTime = 0L
@@ -85,6 +94,7 @@ class MainActivity : BaseActivity() {
     private var latestSpeechText = ""
     private var latestSummaryText = ""
     private var latestSpeaker = "self"
+    private var latestAudioDebugBody = ""
     private val conversationItems = mutableListOf<ConversationTurn>()
 
     private data class ConversationTurn(
@@ -141,7 +151,8 @@ class MainActivity : BaseActivity() {
         conversationItems.clear()
         binding.conversationList.removeAllViews()
         binding.txtFaceResult.setText(R.string.live_status_listening)
-        binding.txtPlaceholder.visibility = View.GONE
+        binding.txtPlaceholder.visibility = View.VISIBLE
+        binding.txtPlaceholder.setText(R.string.stt_waiting)
         isVideoStreaming = true
         startCamera()
         startAudioStreaming()
@@ -420,37 +431,77 @@ class MainActivity : BaseActivity() {
     @SuppressLint("MissingPermission")
     private fun startAudioStreaming() {
         if (isAudioStreaming) return
+        if (
+            ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            showAudioStatus(getString(R.string.audio_permission_missing))
+            return
+        }
         isAudioStreaming = true
 
         try {
+            if (bufferSize <= 0) {
+                Log.e(TAG, "AudioRecord min buffer size invalid: $bufferSize")
+                showAudioStatus(getString(R.string.audio_record_init_failed))
+                isAudioStreaming = false
+                return
+            }
             audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
                 sampleRate,
                 channelConfig,
                 audioFormat,
-                bufferSize,
+                audioBufferSize,
             )
+            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
+                Log.e(TAG, "AudioRecord init failed. state=${audioRecord?.state}, bufferSize=$audioBufferSize")
+                showAudioStatus(getString(R.string.audio_record_init_failed))
+                stopAudioStreaming()
+                return
+            }
             audioRecord?.startRecording()
-        } catch (_: Exception) {
+            if (audioRecord?.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                Log.e(TAG, "AudioRecord failed to start. recordingState=${audioRecord?.recordingState}")
+                showAudioStatus(getString(R.string.audio_record_start_failed))
+                stopAudioStreaming()
+                return
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Audio start fail: ${e.message}", e)
+            showAudioStatus(getString(R.string.audio_record_start_failed))
             isAudioStreaming = false
             return
         }
 
         thread {
-            val chunkSize = 6400
-            val pcmChunk = ByteArray(chunkSize)
+            val pcmChunk = ByteArray(AUDIO_READ_SIZE)
+            val pendingAudio = ByteArrayOutputStream()
 
             while (isAudioStreaming) {
                 if (audioRecord == null || audioRecord?.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                    Log.w(TAG, "Audio loop stopped. record=${audioRecord != null}, state=${audioRecord?.recordingState}")
                     break
                 }
 
-                val readSize = audioRecord?.read(pcmChunk, 0, chunkSize) ?: 0
+                val readSize = audioRecord?.read(pcmChunk, 0, AUDIO_READ_SIZE) ?: 0
                 if (readSize > 0 && isAudioStreaming) {
-                    val chunk = if (readSize == chunkSize) pcmChunk else pcmChunk.copyOf(readSize)
-                    sendAudioChunk(chunk)
+                    pendingAudio.write(pcmChunk, 0, readSize)
+                    if (pendingAudio.size() >= AUDIO_SEND_SIZE) {
+                        sendAudioChunk(pendingAudio.toByteArray())
+                        pendingAudio.reset()
+                    }
+                } else if (readSize < 0) {
+                    Log.e(TAG, "AudioRecord read failed: $readSize")
+                    showAudioStatus(getString(R.string.audio_read_failed))
+                    break
                 }
             }
+
+            if (pendingAudio.size() > 0) {
+                sendAudioChunk(pendingAudio.toByteArray())
+            }
+            stopAudioStreaming()
         }
     }
 
@@ -473,6 +524,9 @@ class MainActivity : BaseActivity() {
 
         val reqBody = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
+            .addFormDataPart("sample_rate", sampleRate.toString())
+            .addFormDataPart("channels", "1")
+            .addFormDataPart("encoding", "pcm_s16le")
             .addFormDataPart(
                 "audio",
                 "chunk.pcm",
@@ -483,7 +537,10 @@ class MainActivity : BaseActivity() {
         val request = Request.Builder().url(url).post(reqBody).build()
 
         client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {}
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "Audio request fail: ${e.message}", e)
+                showAudioStatus(getString(R.string.audio_server_failed))
+            }
 
             override fun onResponse(call: Call, response: Response) {
                 if (!isAudioStreaming) {
@@ -491,12 +548,20 @@ class MainActivity : BaseActivity() {
                     return
                 }
 
+                if (!response.isSuccessful) {
+                    Log.e(TAG, "Audio response error: ${response.code}")
+                    response.close()
+                    showAudioStatus(getString(R.string.audio_server_response_error, response.code))
+                    return
+                }
+
                 val body = response.body?.string()
                 response.close()
                 if (body != null) {
+                    latestAudioDebugBody = body
                     try {
                         val json = JSONObject(body)
-                        val text = json.optString("text")
+                        val text = json.firstTranscript()
                         val speaker = json.optString("speaker")
 
                         if (text.isNotBlank()) {
@@ -512,9 +577,21 @@ class MainActivity : BaseActivity() {
                             if (prosody.isNotEmpty() && content.isNotEmpty()) {
                                 requestFusionAnalysis(text, prosody, content, speaker)
                             }
+                        } else {
+                            Log.w(TAG, "Audio response had no transcript. body=$body")
+                            showAudioStatus(
+                                getString(R.string.audio_empty_transcript) +
+                                    "\n\n" +
+                                    getString(R.string.audio_debug_prefix, body.toDebugSnippet()),
+                            )
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Audio parse fail: ${e.message}")
+                        showAudioStatus(
+                            getString(R.string.audio_parse_failed) +
+                                "\n\n" +
+                                getString(R.string.audio_debug_prefix, body.toDebugSnippet()),
+                        )
                     }
                 }
             }
@@ -570,16 +647,14 @@ class MainActivity : BaseActivity() {
                                     fusionEmotion == "Analyzing..." || fusionEmotion == "Waiting" -> getString(
                                         R.string.fusion_collecting,
                                     )
-
                                     fusionEmotion == "Model Error" || fusionEmotion == "Inference Fail" -> getString(
                                         R.string.fusion_failed,
                                     )
-
                                     else -> {
                                         val confPercent = (fusionConfidence * 100).toInt()
                                         getString(R.string.fusion_detected, fusionEmotion, confPercent)
                                     }
-                            }
+                                }
                             latestSummaryText = nextSummary
                             renderSummaryBubble(nextSummary, speaker)
                         }
@@ -623,21 +698,20 @@ class MainActivity : BaseActivity() {
             .filterNot { isSelfSpeaker(it.speaker) }
             .mapNotNull { it.summary.takeIf(String::isNotBlank) }
             .joinToString("\n")
-        val fallbackTitle = if (hasContent) {
-            summary.ifBlank { getString(R.string.calendar_fallback_title) }
-        } else {
-            getString(R.string.calendar_fallback_title)
-        }
+        val fallbackTitle = formatRecordTitleDate(startedAt)
         val conversationForSummary = buildConversationForSummary()
 
         stopAllStreaming()
-        binding.txtFaceResult.text = getString(R.string.live_status_summary)
+        binding.txtFaceResult.setText(R.string.live_status_summary)
 
         OpenAiSummaryService.summarizeConversation(conversationForSummary) { apiSummary ->
             runOnUiThread {
                 ConversationRecordStore.saveTodayRecord(
                     context = this,
-                    title = apiSummary ?: fallbackTitle,
+                    title = apiSummary
+                        ?.trim()
+                        ?.takeIf { it.isNotBlank() && it != getString(R.string.calendar_fallback_title) }
+                        ?: fallbackTitle,
                     subtitle = if (hasContent) speech else "",
                     startedAt = startedAt,
                     selfSpeech = selfSpeech,
@@ -655,18 +729,22 @@ class MainActivity : BaseActivity() {
 
     private fun buildConversationForSummary(): String {
         return conversationItems.joinToString("\n") { turn ->
-            val speakerLabel = if (isSelfSpeaker(turn.speaker)) "나" else "상대"
+            val speakerLabel = if (isSelfSpeaker(turn.speaker)) "me" else "other"
             val speech = turn.speech.trim()
             val summary = turn.summary.trim()
             buildString {
                 append("$speakerLabel: ")
                 append(speech)
                 if (summary.isNotBlank()) {
-                    append("\n감정/맥락 요약: ")
+                    append("\nsummary: ")
                     append(summary)
                 }
             }
         }.trim()
+    }
+
+    private fun formatRecordTitleDate(timeMillis: Long): String {
+        return SimpleDateFormat("yyyy.MM.dd", Locale.KOREA).format(Date(timeMillis))
     }
 
     private fun renderSpeechBubble(text: String, speaker: String) {
@@ -688,6 +766,7 @@ class MainActivity : BaseActivity() {
             return
         }
 
+        binding.txtPlaceholder.visibility = View.GONE
         renderConversationList()
         scrollConversationToBottom()
     }
@@ -700,7 +779,7 @@ class MainActivity : BaseActivity() {
             conversationItems.add(
                 ConversationTurn(
                     speaker = speaker,
-                    speech = "",
+                    speech = getString(R.string.camera_waiting_user),
                     summary = summary,
                 ),
             )
@@ -708,6 +787,7 @@ class MainActivity : BaseActivity() {
             currentTurn.summary = summary
         }
 
+        binding.txtPlaceholder.visibility = View.GONE
         renderConversationList()
         scrollConversationToBottom()
     }
@@ -754,7 +834,118 @@ class MainActivity : BaseActivity() {
 
             binding.conversationList.addView(bubble)
         }
+        binding.txtPlaceholder.visibility =
+            if (conversationItems.isEmpty()) View.VISIBLE else View.GONE
     }
+
+    private fun showAudioStatus(message: String) {
+        runOnUiThread {
+            if (conversationItems.isEmpty()) {
+                binding.txtPlaceholder.visibility = View.VISIBLE
+                binding.txtPlaceholder.text = message
+            }
+        }
+    }
+
+    private fun JSONObject.firstTranscript(): String {
+        val preferredKeys = arrayOf(
+            "text",
+            "transcript",
+            "utterance",
+            "speech",
+            "recognized_text",
+            "display_text",
+            "prediction",
+            "content",
+            "message",
+            "result",
+            "data",
+            "segments",
+            "results",
+            "alternatives",
+            "chunks",
+        )
+
+        preferredKeys.forEach { key ->
+            val value = opt(key)
+            val extracted = extractTranscriptValue(value)
+            if (extracted.isUsableTranscript()) return extracted
+        }
+
+        val allKeys = keys()
+        while (allKeys.hasNext()) {
+            val key = allKeys.next()
+            val extracted = extractTranscriptValue(opt(key))
+            if (extracted.isUsableTranscript()) return extracted
+        }
+        return ""
+    }
+
+    private fun extractTranscriptValue(value: Any?): String {
+        return when (value) {
+            is String -> value.trim()
+            is JSONArray -> extractTranscriptFromArray(value)
+            is JSONObject -> extractTranscriptFromObject(value)
+            else -> ""
+        }
+    }
+
+    private fun extractTranscriptFromArray(array: JSONArray): String {
+        val parts = mutableListOf<String>()
+        for (index in 0 until array.length()) {
+            val item = array.opt(index)
+            val extracted = extractTranscriptValue(item)
+            if (extracted.isUsableTranscript()) {
+                parts += extracted
+            }
+        }
+        return parts.joinToString(" ").trim()
+    }
+
+    private fun extractTranscriptFromObject(obj: JSONObject): String {
+        val objectKeys = arrayOf(
+            "text",
+            "transcript",
+            "utterance",
+            "speech",
+            "recognized_text",
+            "display_text",
+            "content",
+            "message",
+            "value",
+            "sentence",
+        )
+
+        objectKeys.forEach { key ->
+            val extracted = extractTranscriptValue(obj.opt(key))
+            if (extracted.isUsableTranscript()) return extracted
+        }
+
+        val nestedKeys = obj.keys()
+        while (nestedKeys.hasNext()) {
+            val key = nestedKeys.next()
+            val extracted = extractTranscriptValue(obj.opt(key))
+            if (extracted.isUsableTranscript()) return extracted
+        }
+        return ""
+    }
+
+    private fun String.isUsableTranscript(): Boolean {
+        if (isBlank()) return false
+        if (this == "[]" || this == "{}") return false
+        return any { char ->
+            char.isLetterOrDigit() ||
+                Character.UnicodeScript.of(char.code) == Character.UnicodeScript.HANGUL
+        }
+    }
+
+    private fun String.toDebugSnippet(): String {
+        return replace("\n", " ")
+            .replace("\r", " ")
+            .replace(Regex("\\s+"), " ")
+            .take(220)
+    }
+
 
     private fun hasPermissions(): Boolean {
         return arrayOf(

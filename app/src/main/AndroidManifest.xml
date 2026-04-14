@@ -38,10 +38,6 @@
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".ResummarizeRecordsActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
-        <activity
             android:name=".HomeActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

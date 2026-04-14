@@ -14,8 +14,17 @@
     <color name="muton_gold">#E6D169</color>
     <color name="muton_screen_bg">#000000</color>
     <color name="muton_surface">#000000</color>
-    <color name="muton_surface_soft">#2D2D2D</color>
+    <color name="muton_surface_soft">#323232</color>
     <color name="muton_surface_elevated">#3A3A3A</color>
-    <color name="muton_back_button_bg">#1F1F1F</color>
+    <color name="muton_home_slider_track">#1D1D1D</color>
+    <color name="muton_home_slider_thumb">#303030</color>
+    <color name="muton_home_slider_progress">#24315F</color>
+    <color name="muton_conversation_bubble">#323232</color>
+    <color name="muton_calendar_selected_circle">#282828</color>
+    <color name="muton_record_card_bg">#343434</color>
+    <color name="muton_record_time">#888888</color>
+    <color name="muton_detail_time">#6B6B6B</color>
+    <color name="muton_detail_summary_text">#929495</color>
+    <color name="muton_back_button_bg">@android:color/transparent</color>
     <color name="muton_overlay_surface">#1AFFFFFF</color>
 </resources>

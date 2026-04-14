@@ -68,8 +68,8 @@ class RecordDetailActivity : BaseActivity() {
             return
         }
 
-        binding.txtDetailDate.text = displayDateFormatter.format(Date(record.createdAt))
-        binding.txtDetailTime.text = displayTimeFormatter.format(Date(record.createdAt))
+        binding.txtDetailDate.text = displayDateFormatter.format(Date(record.startedAt))
+        binding.txtDetailTime.text = displayTimeFormatter.format(Date(record.startedAt))
         binding.txtDetailSummaryCard.text = record.title
         binding.detailConversationWrap.removeAllViews()
         binding.btnMoveToTrash.setImageResource(

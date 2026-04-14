@@ -6,14 +6,14 @@
     android:viewportHeight="24">
     <path
         android:pathData="M12,3C7.03,3 3,7.03 3,12s4.03,9 9,9 9,-4.03 9,-9 -4.03,-9 -9,-9z"
-        android:strokeColor="#98A2B3"
+        android:strokeColor="@color/muton_record_time"
         android:strokeWidth="1.8"
         android:fillColor="@android:color/transparent"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
     <path
         android:pathData="M12,7.6v4.9l3.2,1.9"
-        android:strokeColor="#98A2B3"
+        android:strokeColor="@color/muton_record_time"
         android:strokeWidth="1.8"
         android:fillColor="@android:color/transparent"
         android:strokeLineCap="round"

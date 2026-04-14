@@ -90,31 +90,6 @@
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/rowResummarizeRecords"
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/settings_resummarize_records"
-                android:textColor="@color/muton_text"
-                android:textSize="16sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="&#8250;"
-                android:textColor="@color/muton_text"
-                android:textSize="24sp" />
-        </LinearLayout>
-
-        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:minHeight="54dp"
@@ -133,6 +108,8 @@
                 android:id="@+id/switchDarkMode"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:thumbTint="@color/muton_switch_thumb_tint"
+                android:trackTint="@color/muton_switch_track_tint"
                 android:showText="false" />
         </LinearLayout>
 

@@ -28,6 +28,15 @@
     <string name="fusion_failed">\uBD84\uC11D \uC2E4\uD328 (\uC11C\uBC84 \uBAA8\uB378 \uC624\uB958)</string>
     <string name="fusion_detected">\uAC10\uC9C0: %1$s (%2$d%%)</string>
     <string name="permission_required">\uCE74\uBA54\uB77C\uC640 \uB9C8\uC774\uD06C \uAD8C\uD55C\uC774 \uD544\uC694\uD569\uB2C8\uB2E4.</string>
+    <string name="audio_permission_missing">\uB9C8\uC774\uD06C \uAD8C\uD55C\uC774 \uC5C6\uC5B4 STT\uB97C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC5B4\uC694.</string>
+    <string name="audio_record_init_failed">\uB9C8\uC774\uD06C \uCD08\uAE30\uD654\uC5D0 \uC2E4\uD328\uD574\uC11C STT\uB97C \uC2DC\uC791\uD558\uC9C0 \uBABB\uD588\uC5B4\uC694.</string>
+    <string name="audio_record_start_failed">\uB9C8\uC774\uD06C \uB179\uC74C \uC2DC\uC791\uC5D0 \uC2E4\uD328\uD574\uC11C STT\uAC00 \uC911\uB2E8\uB410\uC5B4\uC694.</string>
+    <string name="audio_read_failed">\uB9C8\uC774\uD06C \uC785\uB825\uC744 \uC77D\uC9C0 \uBABB\uD574 STT\uAC00 \uBA48\uCDB0\uC5B4\uC694.</string>
+    <string name="audio_server_failed">STT \uC11C\uBC84\uC5D0 \uC624\uB514\uC624\uB97C \uBCF4\uB0B4\uC9C0 \uBABB\uD588\uC5B4\uC694.</string>
+    <string name="audio_server_response_error">STT \uC11C\uBC84 \uC751\uB2F5 \uC624\uB958: %1$d</string>
+    <string name="audio_parse_failed">STT \uC11C\uBC84 \uC751\uB2F5\uC744 \uD574\uC11D\uD558\uC9C0 \uBABB\uD588\uC5B4\uC694.</string>
+    <string name="audio_empty_transcript">STT \uC751\uB2F5\uC740 \uC654\uC9C0\uB9CC \uD14D\uC2A4\uD2B8\uAC00 \uBE44\uC5B4 \uC788\uC5B4\uC694.</string>
+    <string name="audio_debug_prefix">debug: %1$s</string>
     <string name="splash_brand">muton</string>
     <string name="splash_mu">mu</string>
     <string name="splash_ton">ton</string>

@@ -18,6 +18,7 @@ data class ConversationRecord(
     val subtitle: String,
     val dateKey: String,
     val timeRange: String,
+    val startedAt: Long,
     val createdAt: Long,
     val isFavorite: Boolean,
     val selfSpeech: String = "",
@@ -50,6 +51,7 @@ object ConversationRecordStore {
             subtitle = subtitle,
             dateKey = dateKey,
             timeRange = buildTimeRange(startedAt, endedAt),
+            startedAt = startedAt,
             createdAt = endedAt,
             isFavorite = false,
             selfSpeech = selfSpeech,
@@ -403,6 +405,7 @@ object ConversationRecordStore {
             put("subtitle", subtitle)
             put("dateKey", dateKey)
             put("timeRange", timeRange)
+            put("startedAt", startedAt)
             put("createdAt", createdAt)
             put("isFavorite", isFavorite)
             put("selfSpeech", selfSpeech)
@@ -418,6 +421,7 @@ object ConversationRecordStore {
             subtitle = optString("subtitle"),
             dateKey = optString("dateKey", defaultDateKey),
             timeRange = optString("timeRange"),
+            startedAt = optLong("startedAt", optLong("createdAt")),
             createdAt = optLong("createdAt"),
             isFavorite = optBoolean("isFavorite", false),
             selfSpeech = optString("selfSpeech"),
@@ -435,6 +439,7 @@ object ConversationRecordStore {
             subtitle = getString("subtitle").orEmpty(),
             dateKey = dateKey,
             timeRange = getString("timeRange").orEmpty(),
+            startedAt = getLong("startedAt") ?: createdAt,
             createdAt = createdAt,
             isFavorite = getBoolean("isFavorite") ?: false,
             selfSpeech = getString("selfSpeech").orEmpty(),

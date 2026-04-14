@@ -1,5 +1,6 @@
 package com.example.myapplication
 
+import android.animation.ValueAnimator
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -8,7 +9,9 @@ import android.view.View
 import android.widget.ImageView
 import android.widget.PopupWindow
 import android.widget.TextView
+import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat
+import androidx.core.view.doOnLayout
 import com.example.myapplication.databinding.ActivityHomeBinding
 import kotlin.math.max
 import kotlin.math.min
@@ -16,9 +19,10 @@ import kotlin.math.min
 class HomeActivity : BaseActivity() {
 
     private lateinit var binding: ActivityHomeBinding
-    private var downRawX = 0f
-    private var initialThumbX = 0f
     private var maxSlideDistance = 0f
+    private var sliderStartWidth = 0
+    private var downRawX = 0f
+    private var dragStartOffset = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,45 +40,47 @@ class HomeActivity : BaseActivity() {
             startActivity(Intent(this, CalendarActivity::class.java))
         }
 
-        binding.sliderTrack.post {
-            initialThumbX = binding.sliderThumb.marginStartPx().toFloat()
+        binding.sliderTrack.doOnLayout {
+            sliderStartWidth = binding.sliderThumb.width + binding.sliderThumb.marginStartPx() + 12.dp()
             maxSlideDistance =
                 (binding.sliderTrack.width
                     - binding.sliderThumb.width
                     - binding.sliderThumb.marginStartPx()
                     - binding.sliderThumb.marginEndPx()).toFloat()
-            binding.sliderThumb.x = initialThumbX
+            updateSliderUi(0f)
         }
 
-        binding.sliderThumb.setOnTouchListener { _, event ->
+        binding.sliderThumb.isClickable = false
+        binding.sliderThumb.isFocusable = false
+        val sliderTouchListener = View.OnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downRawX = event.rawX
+                    dragStartOffset = binding.sliderThumb.translationX
                     true
                 }
 
                 MotionEvent.ACTION_MOVE -> {
                     val delta = event.rawX - downRawX
-                    val nextX = min(max(initialThumbX + delta, initialThumbX), initialThumbX + maxSlideDistance)
-                    binding.sliderThumb.x = nextX
+                    val nextOffset = min(
+                        max(dragStartOffset + delta, 0f),
+                        maxSlideDistance,
+                    )
+                    updateSliderUi(nextOffset)
                     true
                 }
 
                 MotionEvent.ACTION_UP,
                 MotionEvent.ACTION_CANCEL,
                 -> {
-                    val travelled = binding.sliderThumb.x - initialThumbX
+                    val travelled = binding.sliderThumb.translationX
                     if (travelled > maxSlideDistance * 0.78f) {
-                        binding.sliderThumb.animate()
-                            .x(initialThumbX + maxSlideDistance)
-                            .setDuration(120L)
-                            .withEndAction {
-                                startActivity(Intent(this, MainActivity::class.java))
-                                binding.sliderThumb.x = initialThumbX
-                            }
-                            .start()
+                        animateSliderTo(maxSlideDistance, 120L) {
+                            startActivity(Intent(this, MainActivity::class.java))
+                            updateSliderUi(0f)
+                        }
                     } else {
-                        binding.sliderThumb.animate().x(initialThumbX).setDuration(160L).start()
+                        animateSliderTo(0f, 160L)
                     }
                     true
                 }
@@ -82,10 +88,13 @@ class HomeActivity : BaseActivity() {
                 else -> false
             }
         }
+        binding.sliderTrack.setOnTouchListener(sliderTouchListener)
+        binding.sliderThumb.setOnTouchListener(sliderTouchListener)
     }
 
     override fun onResume() {
         super.onResume()
+        updateSliderUi(0f)
         renderGreeting()
         ConversationRecordStore.syncFromFirebase(this) {
             runOnUiThread {
@@ -179,4 +188,34 @@ class HomeActivity : BaseActivity() {
     }
 
     private fun Int.dp(): Int = (this * resources.displayMetrics.density).toInt()
+
+    private fun updateSliderUi(offset: Float) {
+        binding.sliderThumb.translationX = offset
+        updateSliderVisuals(offset)
+    }
+
+    private fun updateSliderVisuals(offset: Float) {
+        val normalizedProgress =
+            if (maxSlideDistance <= 0f) 0f else (offset / maxSlideDistance).coerceIn(0f, 1f)
+        val progressWidth = sliderStartWidth + offset.toInt()
+        binding.sliderProgress.layoutParams = binding.sliderProgress.layoutParams.apply {
+            width = progressWidth
+        }
+        binding.sliderProgress.requestLayout()
+        binding.txtSliderCameraOn.alpha = 0.62f - (normalizedProgress * 0.42f)
+        binding.txtSliderCameraOn.translationX = (1f - normalizedProgress) * 6.dp()
+    }
+
+    private fun animateSliderTo(target: Float, duration: Long, onEnd: (() -> Unit)? = null) {
+        ValueAnimator.ofFloat(binding.sliderThumb.translationX, target).apply {
+            this.duration = duration
+            addUpdateListener { animator ->
+                updateSliderUi(animator.animatedValue as Float)
+            }
+            doOnEnd {
+                onEnd?.invoke()
+            }
+            start()
+        }
+    }
 }

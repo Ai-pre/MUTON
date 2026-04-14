@@ -22,9 +22,6 @@ class SettingsActivity : BaseActivity() {
         binding.rowChangePassword.setOnClickListener {
             startActivity(Intent(this, ChangePasswordActivity::class.java))
         }
-        binding.rowResummarizeRecords.setOnClickListener {
-            startActivity(Intent(this, ResummarizeRecordsActivity::class.java))
-        }
         binding.switchDarkMode.isChecked = DarkModeManager.isEnabled(this)
         binding.switchDarkMode.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked == DarkModeManager.isEnabled(this)) return@setOnCheckedChangeListener

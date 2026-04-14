@@ -71,7 +71,7 @@
                 android:id="@+id/txtDetailTime"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/muton_muted"
+                android:textColor="@color/muton_detail_time"
                 android:textSize="24sp"
                 android:textStyle="bold" />
 
@@ -95,7 +95,7 @@
                 android:lineSpacingExtra="3dp"
                 android:paddingHorizontal="18dp"
                 android:paddingVertical="18dp"
-                android:textColor="@color/muton_muted"
+                android:textColor="@color/muton_detail_summary_text"
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
