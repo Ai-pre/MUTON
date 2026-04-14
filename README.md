@@ -82,13 +82,13 @@ Use a separate `server` worktree/repo checkout and update:
 python scripts/update_backend_url.py https://xxxxx.trycloudflare.com
 git add backend_url.json
 git commit -m "Update backend URL"
-git push origin HEAD:server
+git push origin server_main
 ```
 
 Android should read:
 
 ```text
-https://raw.githubusercontent.com/Ai-pre/MUTON/refs/heads/server/backend_url.json
+https://raw.githubusercontent.com/Ai-pre/MUTON/refs/heads/server_main/backend_url.json
 ```
 
 ## STT Backends
