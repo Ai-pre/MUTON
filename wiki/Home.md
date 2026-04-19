@@ -29,11 +29,6 @@ This repository therefore contains both:
 - multimodal Korean summary generation
 - confidence-aware suppression for unreliable summaries
 
-## Where To Place Figures
-
-- Add the P-project vs Graduation Project 2 pipeline comparison image in `Architecture.md`.
-- Add mobile demo screenshots after the feature overview in this Home page or in project release notes.
-
 ## Important Entry Points
 
 - `scripts/run_qwen_server.py`

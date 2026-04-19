@@ -8,8 +8,6 @@ Many captioning tools can tell a user what was said, but not how it was said. In
 
 The project started in P-project as a directly designed multimodal pipeline with separate encoders and a custom fusion Transformer. In Graduation Project 2, the focus shifted from "can we build the whole pipeline ourselves?" to "which architecture works better in a real service setting?" That transition led to richer sequence experiments and finally to a Qwen2.5-Omni based summary path.
 
-> Suggested figure placement: insert the P-project vs Graduation Project 2 pipeline comparison image block directly below this section.
-
 ## Current Recommended Runtime
 
 - multimodal summary and reasoning: `Qwen2.5-Omni + ko_stage LoRA`

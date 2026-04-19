@@ -14,15 +14,6 @@ P-project used separate face, audio, and text encoders followed by a directly de
 
 Graduation Project 2 kept the mobile streaming structure but changed the summary engine. After richer sequence experiments, the project moved to a Qwen2.5-Omni based path that accepts raw multimodal inputs more naturally and generates summaries with stronger pretrained multimodal reasoning.
 
-## Figure Placement
-
-Add the pipeline comparison figures in this order:
-
-1. Insert the P-project pipeline figure immediately below this section.
-2. Insert the Graduation Project 2 pipeline figure directly below the P-project figure.
-
-If the final wiki layout allows a side-by-side arrangement, that is the best presentation. If not, keep them in vertical order so the transition is easy to read.
-
 ## Current Runtime Pipeline
 
 1. the client streams camera frames to `/process_video_chunk`
