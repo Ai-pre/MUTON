@@ -3,14 +3,14 @@
 ## System Evolution
 
 MUTON has two important pipeline stages in its development history.
-<img width="1187" height="447" alt="파이프라인(p-project)" src="https://github.com/user-attachments/assets/b0e53b3b-c230-44fe-8d02-fdef0f2bf222" />
-<img width="1237" height="395" alt="파이프라인(졸업작품2)" src="https://github.com/user-attachments/assets/cc9feac7-ec11-4e39-b25d-b5e6a9ac3db5" />
 
 ### P-project
+<img width="1187" height="447" alt="파이프라인(p-project)" src="https://github.com/user-attachments/assets/b0e53b3b-c230-44fe-8d02-fdef0f2bf222" />
 
 P-project used separate face, audio, and text encoders followed by a directly designed multimodal fusion Transformer. This version proved that a full streaming pipeline could be built and connected to the Android client, but summary quality was still limited by feature compression and a handcrafted generation flow.
 
 ### Graduation Project 2
+<img width="1237" height="395" alt="파이프라인(졸업작품2)" src="https://github.com/user-attachments/assets/cc9feac7-ec11-4e39-b25d-b5e6a9ac3db5" />
 
 Graduation Project 2 kept the mobile streaming structure but changed the summary engine. After richer sequence experiments, the project moved to a Qwen2.5-Omni based path that accepts raw multimodal inputs more naturally and generates summaries with stronger pretrained multimodal reasoning.
 
