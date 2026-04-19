@@ -30,6 +30,7 @@ This split is intentional. The current system uses `whisper-1` for subtitle qual
 - confidence-aware suppression to avoid misleading summaries in noisy environments
 
 ## What Changed In Graduation Project 2
+<img width="1237" height="395" alt="파이프라인(졸업작품2)" src="https://github.com/user-attachments/assets/9609c160-2fd2-4331-98dd-60bdd73efc45" />
 
 - The summary engine moved from a directly designed fusion Transformer to a pretrained multimodal generator.
 - The data pipeline evolved from feature-oriented samples to JSONL message-format samples for multimodal generation.
