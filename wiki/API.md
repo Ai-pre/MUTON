@@ -54,13 +54,13 @@ Receives one JPEG frame and updates the latest visual state used by the summary 
 ### Notes
 
 - `emotion` is a 6-class mapped visual label for the mobile UI.
-- The image is also cached as the latest face image for the next multimodal summary step.
+- The image is cached as the latest face image for the next summary step.
 
 ## `POST /process_audio_chunk`
 
 ### Description
 
-Receives raw PCM audio chunks. The server buffers them until it detects an utterance boundary with VAD, then runs STT.
+Receives raw PCM audio chunks. The server buffers them until an utterance boundary is detected, then runs STT.
 
 ### Request
 
@@ -72,7 +72,7 @@ Receives raw PCM audio chunks. The server buffers them until it detects an utter
 
 ```json
 {
-  "text": "오늘 너무 피곤해.",
+  "text": "hello, where are you going now?",
   "stt_confidence": 0.82,
   "prosody": [],
   "content": [],
@@ -84,9 +84,9 @@ Receives raw PCM audio chunks. The server buffers them until it detects an utter
 
 ### Notes
 
-- `text` is empty until the server decides the utterance is complete.
-- `stt_confidence` is a server-side confidence score used to suppress unreliable summaries.
-- In the current Qwen path, `prosody`, `content`, and `speaker` are placeholders kept for app compatibility.
+- `text` is empty until the server considers the utterance complete.
+- `stt_confidence` is used to suppress unreliable summaries.
+- In the current Qwen runtime path, `prosody`, `content`, and `speaker` remain for app compatibility and are not the main summary inputs.
 
 ## `POST /get_fusion_analysis`
 
@@ -117,7 +117,7 @@ Successful case:
   "fusion_confidence": 0.81,
   "arousal": 0.0,
   "valence": 0.0,
-  "summary": "눈을 크게 뜨고 당황한 표정으로 상황을 되묻고 있다.",
+  "summary": "The speaker sounds tense and appears to be explaining the situation carefully.",
   "cls_attn": []
 }
 ```
@@ -149,5 +149,5 @@ No visual input case:
 For the best current mobile-demo behavior:
 
 - `MUTON_QWEN_STT_BACKEND=openai`
-- Qwen used only for multimodal summary generation
-- `whisper-1` used only for STT
+- Qwen is used for multimodal summary generation
+- `whisper-1` is used for STT

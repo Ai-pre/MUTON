@@ -1,59 +1,51 @@
 # MUTON
 
-MUTON is a multimodal dialogue assistance project for conversational understanding from face, audio, and transcript signals.
+MUTON is a real-time multimodal dialogue assistance project for hearing-impaired users, especially users who rely on oral communication rather than sign language. The project goes beyond plain speech-to-text by combining face, audio, and transcript signals to estimate conversational tone and generate short context-aware summaries.
 
-This branch's current recommended runtime path is:
+## Why MUTON Exists
 
-- multimodal summary and reasoning: `Qwen2.5-Omni`
-- speech-to-text: `OpenAI whisper-1` API
+Many captioning tools can tell a user what was said, but not how it was said. In real conversations, emotion, tone, hesitation, tension, and attitude often change the meaning of the same sentence. MUTON was built to reduce that gap by interpreting multimodal cues together instead of relying on transcript text alone.
+
+The project started in P-project as a directly designed multimodal pipeline with separate encoders and a custom fusion Transformer. In Graduation Project 2, the focus shifted from "can we build the whole pipeline ourselves?" to "which architecture works better in a real service setting?" That transition led to richer sequence experiments and finally to a Qwen2.5-Omni based summary path.
+
+> Suggested figure placement: insert the P-project vs Graduation Project 2 pipeline comparison image block directly below this section.
+
+## Current Recommended Runtime
+
+- multimodal summary and reasoning: `Qwen2.5-Omni + ko_stage LoRA`
+- speech-to-text: `OpenAI whisper-1`
 - local fallback STT: `ghost613/whisper-large-v3-turbo-korean`
-- mobile backend discovery: `server` branch `backend_url.json`
+- backend: `FastAPI`
+- mobile endpoint discovery: `backend_url.json` on `server_main`
 
-Detailed runtime and troubleshooting notes live in [docs/QWEN_RUNTIME.md](docs/QWEN_RUNTIME.md).
+This split is intentional. The current system uses `whisper-1` for subtitle quality and Qwen2.5-Omni for multimodal reasoning, because that combination behaved most reliably in the mobile demo setting.
 
-GitHub wiki-ready pages live under `wiki/`, and a minimal API client example lives in `examples/python_api_client.py`.
+## Core Features
 
+- real-time Android-to-server streaming for camera frames and PCM audio
+- utterance-level buffering with VAD-based speech segmentation
+- subtitle generation from streaming speech
+- face-only visual emotion output for the mobile UI
+- multimodal Korean summary generation from committed face, audio, and transcript snapshots
+- confidence-aware suppression to avoid misleading summaries in noisy environments
 
-## Repository Layout
+## What Changed In Graduation Project 2
 
-```text
-MUTON/
-  muton/                      shared config and import compatibility helpers
-  scripts/
-    run_qwen_server.py        FastAPI entrypoint for the current mobile demo
-    run_server.py             legacy fusion server entrypoint
-    update_backend_url.py     writes backend_url.json for the Android app
-    export_qwen_omni_*.py     JSONL exporters for Qwen2.5-Omni LoRA training
-    train_qwen_omni_lora*.py  Qwen2.5-Omni LoRA training wrappers
-  src/
-    server_qwen.py            current Qwen summary + STT server
-    encoders.py               face/audio encoders and STT backends
-    qwen_omni_dataset.py      JSONL dataset builders and media materialization
-    server.py                 legacy fusion server
-    fusion_seq2seq.py         legacy seq2seq experiments
-  preprocessing/             asset preparation metadata
-  backend_url.json           tracked backend URL file for Android remote config
-```
+- The summary engine moved from a directly designed fusion Transformer to a pretrained multimodal generator.
+- The data pipeline evolved from feature-oriented samples to JSONL message-format samples for multimodal generation.
+- STT and summary responsibilities were separated: `whisper-1` handles transcription, while Qwen handles reasoning.
+- The runtime now commits one utterance snapshot at a time so transcript, audio, and face stay synchronized during summary generation.
 
 ## Quick Start
 
 ### 1. Install
 
-Stable project environment:
-
 ```bash
 pip install -r requirements.txt
-```
-
-Qwen2.5-Omni path:
-
-```bash
 pip install -r requirements-qwen-omni.txt
 ```
 
 ### 2. Run The Recommended Server
-
-Recommended production-ish demo setup:
 
 ```bash
 export OPENAI_API_KEY=YOUR_KEY
@@ -62,21 +54,13 @@ export MUTON_QWEN_STT_BACKEND=openai
 CUDA_VISIBLE_DEVICES=1 python scripts/run_qwen_server.py
 ```
 
-This gives:
-
-- STT: `whisper-1` API with utterance-level filtering
-- summary: `Qwen2.5-Omni + ko_stage LoRA`
-- face-only top-bar emotion: 6-class mapped visual label
-
 ### 3. Expose The Server
 
 ```bash
 cloudflared tunnel --url http://127.0.0.1:5000
 ```
 
-### 4. Publish The Current Tunnel URL For Android
-
-Use a separate `server` worktree/repo checkout and update:
+### 4. Publish The Current Tunnel URL
 
 ```bash
 python scripts/update_backend_url.py https://xxxxx.trycloudflare.com
@@ -88,65 +72,37 @@ git push origin server_main
 Android should read:
 
 ```text
-https://raw.githubusercontent.com/Ai-pre/MUTON/refs/heads/server_main/backend_url.json
+https://raw.githubusercontent.com/Ai-pre/MUTON/server_main/backend_url.json
 ```
 
-## STT Backends
+## Repository Guide
 
-`src/server_qwen.py` supports three STT modes through `MUTON_QWEN_STT_BACKEND`.
-
-- `openai`: recommended for the current app demo; restores the earlier Whisper API path with logprob/no-speech filtering
-- `whisper`: local Korean Whisper fallback using `ghost613/whisper-large-v3-turbo-korean`
-- `qwen`: Qwen audio transcription path for experiments only
-
-Relevant environment variables:
-
-- `OPENAI_API_KEY`
-- `MUTON_QWEN_STT_BACKEND`
-- `MUTON_STT_MODEL_NAME`
-- `MUTON_STT_MIN_TRANSCRIPT_CONFIDENCE`
-- `MUTON_STT_SUMMARY_MIN_CONFIDENCE`
-
-## Qwen2.5-Omni Training Flow
-
-### Export JSONL
-
-```bash
-python scripts/export_qwen_omni_meld_dataset.py \
-  --input_pt out/meld_train_pseudo_mm.pt \
-  --videos_root data/MELD/MELD.Raw/train_splits \
-  --meld_csv data/MELD/MELD.Raw/train_sent_emo.csv \
-  --out_jsonl out/qwen_omni_meld_train.jsonl \
-  --media_root out/qwen_omni_meld_train_media
-
-python scripts/export_qwen_omni_meld_dataset.py \
-  --input_pt out/meld_dev_pseudo_mm.pt \
-  --videos_root data/MELD/MELD.Raw/dev_splits \
-  --meld_csv data/MELD/MELD.Raw/dev_sent_emo.csv \
-  --out_jsonl out/qwen_omni_meld_dev.jsonl \
-  --media_root out/qwen_omni_meld_dev_media
-
-python scripts/export_qwen_omni_ko_dataset.py \
-  --json_path preprocessing/multi_text.json \
-  --face_root data/Korea/face_crops \
-  --audio_root data/Korea/audio \
-  --out_jsonl out/qwen_omni_ko.jsonl
+```text
+MUTON/
+  scripts/
+    run_qwen_server.py        current FastAPI entrypoint
+    run_server.py             legacy fusion server entrypoint
+    update_backend_url.py     updates backend_url.json for the Android app
+    export_qwen_omni_*.py     JSONL exporters for Qwen training
+    train_qwen_omni_lora*.py  LoRA training wrappers
+  src/
+    server_qwen.py            current Qwen summary + STT server
+    encoders.py               face/audio encoders and STT backends
+    qwen_omni_dataset.py      dataset builders and media materialization
+    server.py                 legacy fusion runtime
+    fusion_seq2seq.py         legacy seq2seq experiments
+  wiki/                       GitHub wiki-ready documentation
+  backend_url.json            tracked Android backend discovery file
 ```
 
-### Two-Stage LoRA
+## Documentation
 
-```bash
-CUDA_VISIBLE_DEVICES=1 python scripts/train_qwen_omni_lora_two_stage.py \
-  --model_name Qwen/Qwen2.5-Omni-7B \
-  --stage_a_train_jsonl out/qwen_omni_meld_train.jsonl \
-  --stage_a_val_jsonl out/qwen_omni_meld_dev.jsonl \
-  --stage_b_train_jsonl out/qwen_omni_ko.jsonl \
-  --load_in_4bit \
-  --gradient_checkpointing
-```
+- wiki home: `wiki/Home.md`
+- installation: `wiki/Installation.md`
+- API reference: `wiki/API.md`
+- architecture and model evolution: `wiki/Architecture.md`
+- request examples: `wiki/Examples.md`
 
-## Notes
+## Legacy Experiment Note
 
-- `out/` is treated as generated artifact space and should not be committed.
-- The Android app path is now documented against `MUTON`, not `MUTON_cpy`.
-- Legacy fusion and seq2seq experiment scripts are kept for comparison, but they are not the recommended runtime path for this branch.
+Legacy fusion and seq2seq experiment files are intentionally kept in the repository because they document the transition from P-project to Graduation Project 2. They are useful as baselines and comparison points, but they are not the recommended runtime path for the current mobile demo.

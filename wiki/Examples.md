@@ -24,7 +24,7 @@ curl -X POST http://127.0.0.1:5000/process_audio_chunk \
 
 ```bash
 curl -X POST http://127.0.0.1:5000/get_fusion_analysis \
-  -F "text=오늘 너무 피곤해." \
+  -F "text=The speaker sounds upset." \
   -F "prosody=[]" \
   -F "content=[]" \
   -F "speaker=[]"
@@ -43,5 +43,5 @@ python examples/python_api_client.py \
   --base_url http://127.0.0.1:5000 \
   --image sample.jpg \
   --pcm chunk.pcm \
-  --text "오늘 너무 피곤해."
+  --text "The speaker sounds upset."
 ```

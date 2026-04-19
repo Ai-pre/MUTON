@@ -2,28 +2,37 @@
 
 ## Project Overview
 
-MUTON is a multimodal dialogue assistance system that combines:
+MUTON is a real-time multimodal dialogue assistance system for hearing-impaired users, especially users who depend on oral communication and context reading in daily conversation. The project combines facial cues, speech, and transcript text to produce both subtitles and short context-aware summaries.
 
-- face-based affect estimation
-- utterance-level speech transcription
-- multimodal reasoning and summary generation
-
-The current deployment path in this repository is:
+The current recommended deployment path in this repository is:
 
 - STT: `OpenAI whisper-1`
 - multimodal summary: `Qwen2.5-Omni + ko_stage LoRA`
 - backend: `FastAPI`
-- mobile endpoint discovery: `backend_url.json` on the `server` branch
+- mobile endpoint discovery: `backend_url.json` on `server_main`
 
-The system is designed for real-time conversational assistance and currently exposes simple HTTP endpoints that can be used by Android, Python, or any HTTP client.
+## From P-project To Graduation Project 2
+
+P-project focused on proving that a full multimodal pipeline could be designed and implemented end to end: separate encoders, a custom fusion model, Android streaming, and server-side inference. Graduation Project 2 keeps the same service goal but shifts the modeling strategy toward stronger real-world quality by comparing richer sequence structures and a pretrained multimodal generation path based on Qwen2.5-Omni.
+
+This repository therefore contains both:
+
+- legacy experimental paths kept for comparison
+- the current recommended runtime path used for the mobile demo
 
 ## Main Features
 
-- real-time face frame ingestion
-- utterance-level audio buffering with VAD
+- real-time camera frame ingestion
+- utterance-level speech buffering with VAD
 - subtitle generation
+- face-only visual emotion output for the app UI
 - multimodal Korean summary generation
-- confidence-aware suppression of unreliable summaries
+- confidence-aware suppression for unreliable summaries
+
+## Where To Place Figures
+
+- Add the P-project vs Graduation Project 2 pipeline comparison image in `Architecture.md`.
+- Add mobile demo screenshots after the feature overview in this Home page or in project release notes.
 
 ## Important Entry Points
 
@@ -34,7 +43,7 @@ The system is designed for real-time conversational assistance and currently exp
 
 ## Recommended Reading Order
 
-1. [Installation](Installation)
-2. [API](API)
-3. [Examples](Examples)
-4. [Architecture](Architecture)
+1. [Architecture](Architecture)
+2. [Installation](Installation)
+3. [API](API)
+4. [Examples](Examples)

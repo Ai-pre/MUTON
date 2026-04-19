@@ -1,5 +1,5 @@
 - [Home](Home)
+- [Architecture](Architecture)
 - [Installation](Installation)
 - [API](API)
 - [Examples](Examples)
-- [Architecture](Architecture)

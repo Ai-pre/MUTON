@@ -5,6 +5,7 @@
 - Python `3.10+`
 - CUDA-capable GPU for Qwen2.5-Omni summary inference
 - OpenAI API key if using the recommended `whisper-1` STT backend
+- `cloudflared` if public mobile access is needed
 
 ## Main Libraries
 
@@ -14,6 +15,7 @@
 - `torchaudio`
 - `transformers`
 - `accelerate`
+- `peft`
 - `openai`
 - `opencv-python`
 - `mediapipe`
@@ -28,27 +30,17 @@ See:
 
 ## Environment Setup
 
-Stable environment:
-
 ```bash
 pip install -r requirements.txt
-```
-
-Qwen2.5-Omni path:
-
-```bash
 pip install -r requirements-qwen-omni.txt
 ```
 
-## Required Environment Variables
-
-Recommended runtime:
+## Recommended Runtime Variables
 
 ```bash
 export OPENAI_API_KEY=YOUR_KEY
 export MUTON_QWEN_ADAPTER=/home/jaesang02/MUTON_cpy/out/qwen_omni_lora/ko_stage
 export MUTON_QWEN_STT_BACKEND=openai
-export MUTON_QWEN_TORCH_DTYPE=bfloat16
 ```
 
 Optional STT tuning:
@@ -91,5 +83,11 @@ If the tunnel URL changes, update:
 python scripts/update_backend_url.py https://xxxxx.trycloudflare.com
 git add backend_url.json
 git commit -m "Update backend URL"
-git push origin HEAD:server
+git push origin server_main
+```
+
+Android should read:
+
+```text
+https://raw.githubusercontent.com/Ai-pre/MUTON/server_main/backend_url.json
 ```
