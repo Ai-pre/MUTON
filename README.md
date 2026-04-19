@@ -103,6 +103,7 @@ MUTON/
 - API reference: `wiki/API.md`
 - architecture and model evolution: `wiki/Architecture.md`
 - request examples: `wiki/Examples.md`
+- Android client repository: [MUTON-Android](https://github.com/Ai-pre/MUTON-Android)
 
 ## Legacy Experiment Note
 
