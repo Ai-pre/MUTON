@@ -3,6 +3,8 @@
 ## System Evolution
 
 MUTON has two important pipeline stages in its development history.
+<img width="1187" height="447" alt="파이프라인(p-project)" src="https://github.com/user-attachments/assets/b0e53b3b-c230-44fe-8d02-fdef0f2bf222" />
+<img width="1237" height="395" alt="파이프라인(졸업작품2)" src="https://github.com/user-attachments/assets/cc9feac7-ec11-4e39-b25d-b5e6a9ac3db5" />
 
 ### P-project
 
