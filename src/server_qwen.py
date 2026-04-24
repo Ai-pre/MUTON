@@ -53,6 +53,11 @@ RECORD_SUMMARY_INSTRUCTION = env_str(
     "MUTON_RECORD_SUMMARY_PROMPT",
     "You summarize conversations in Korean. Return exactly one concise Korean sentence that captures the overall conversation topic and intent. Do not add labels, quotes, bullets, or explanations.",
 )
+SPEAKER_CLUSTERING_ENABLED = env_str("MUTON_ENABLE_SPEAKER_CLUSTERING", "true").lower() == "true"
+SPEAKER_CLUSTER_THRESHOLD = float(env_str("MUTON_SPEAKER_CLUSTER_THRESHOLD", "0.80"))
+SPEAKER_CLUSTER_RESET_SEC = float(env_str("MUTON_SPEAKER_CLUSTER_RESET_SEC", "45.0"))
+SPEAKER_CLUSTER_MAX_SPEAKERS = int(env_str("MUTON_SPEAKER_CLUSTER_MAX_SPEAKERS", "6"))
+SPEAKER_CLUSTER_EMA_ALPHA = float(env_str("MUTON_SPEAKER_CLUSTER_EMA_ALPHA", "0.25"))
 
 
 def parse_torch_dtype(name: str) -> torch.dtype:
@@ -181,6 +186,9 @@ committed_timestamp = 0.0
 last_summary_key: tuple[float, str] | None = None
 last_summary_text = ""
 _record_summary_client: OpenAI | None = None
+speaker_prototypes: list[np.ndarray] = []
+speaker_counts: list[int] = []
+last_speaker_cluster_timestamp = 0.0
 
 
 def _generate_from_messages(
@@ -321,6 +329,75 @@ def generate_conversation_record_title(conversation_text: str) -> str:
     return _extract_response_output_text(response)
 
 
+def _normalize_speaker_embedding(values: list[float] | np.ndarray) -> np.ndarray | None:
+    embedding = np.asarray(values, dtype=np.float32)
+    if embedding.size == 0:
+        return None
+    norm = float(np.linalg.norm(embedding))
+    if not np.isfinite(norm) or norm < 1e-6:
+        return None
+    return embedding / norm
+
+
+def reset_speaker_clusters() -> None:
+    global speaker_prototypes, speaker_counts, last_speaker_cluster_timestamp
+
+    speaker_prototypes = []
+    speaker_counts = []
+    last_speaker_cluster_timestamp = 0.0
+
+
+def assign_speaker_label(utterance_waveform: np.ndarray | None) -> tuple[str, float, int]:
+    global last_speaker_cluster_timestamp
+
+    if not SPEAKER_CLUSTERING_ENABLED or utterance_waveform is None or utterance_waveform.size == 0:
+        return "", 0.0, len(speaker_prototypes)
+
+    now = time.time()
+    if last_speaker_cluster_timestamp and (now - last_speaker_cluster_timestamp) > SPEAKER_CLUSTER_RESET_SEC:
+        reset_speaker_clusters()
+
+    try:
+        feats = _audio_encoder.extract_features_from_pcm(utterance_waveform.astype(np.float32, copy=False))
+    except Exception as exc:
+        print(f"Speaker feature extraction error: {exc}")
+        return "", 0.0, len(speaker_prototypes)
+
+    embedding = _normalize_speaker_embedding(feats.get("speaker", []))
+    if embedding is None:
+        return "", 0.0, len(speaker_prototypes)
+
+    if not speaker_prototypes:
+        speaker_prototypes.append(embedding.copy())
+        speaker_counts.append(1)
+        last_speaker_cluster_timestamp = now
+        return "speaker_0", 1.0, 1
+
+    similarities = [float(np.dot(proto, embedding)) for proto in speaker_prototypes]
+    best_idx = int(np.argmax(similarities))
+    best_similarity = similarities[best_idx]
+
+    if best_similarity >= SPEAKER_CLUSTER_THRESHOLD:
+        alpha = float(np.clip(SPEAKER_CLUSTER_EMA_ALPHA, 0.0, 1.0))
+        updated = (1.0 - alpha) * speaker_prototypes[best_idx] + alpha * embedding
+        normalized_updated = _normalize_speaker_embedding(updated)
+        if normalized_updated is not None:
+            speaker_prototypes[best_idx] = normalized_updated
+        speaker_counts[best_idx] += 1
+        last_speaker_cluster_timestamp = now
+        return f"speaker_{best_idx}", best_similarity, len(speaker_prototypes)
+
+    if len(speaker_prototypes) < SPEAKER_CLUSTER_MAX_SPEAKERS:
+        speaker_prototypes.append(embedding.copy())
+        speaker_counts.append(1)
+        last_speaker_cluster_timestamp = now
+        new_idx = len(speaker_prototypes) - 1
+        return f"speaker_{new_idx}", best_similarity, len(speaker_prototypes)
+
+    last_speaker_cluster_timestamp = now
+    return f"speaker_{best_idx}", best_similarity, len(speaker_prototypes)
+
+
 def consume_audio_buffer_for_qwen_stt(raw_bytes: bytes) -> tuple[str | None, np.ndarray | None, float]:
     audio_int16 = np.frombuffer(raw_bytes, dtype=np.int16)
     if len(audio_int16) > 0:
@@ -402,6 +479,13 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "backend": "qwen_omni"}
 
 
+@app.post("/reset_speaker_clusters")
+async def reset_speaker_clusters_endpoint() -> dict[str, Any]:
+    cleared = len(speaker_prototypes)
+    reset_speaker_clusters()
+    return {"status": "ok", "cleared_speakers": cleared}
+
+
 @app.post("/process_video_chunk")
 async def process_video_chunk(frame: UploadFile = File(...)) -> dict[str, Any]:
     global latest_face_image, latest_face_timestamp
@@ -433,6 +517,9 @@ async def process_audio_chunk(audio: UploadFile = File(...)) -> dict[str, Any]:
     pcm = await audio.read()
     text = ""
     stt_confidence = 0.0
+    speaker_label = ""
+    speaker_similarity = 0.0
+    known_speakers = len(speaker_prototypes)
 
     if QWEN_STT_BACKEND == "qwen":
         transcript, utterance_waveform, stt_confidence = consume_audio_buffer_for_qwen_stt(pcm)
@@ -443,6 +530,7 @@ async def process_audio_chunk(audio: UploadFile = File(...)) -> dict[str, Any]:
             text = transcript
             latest_transcript = text
             commit_utterance_snapshot(text, utterance_waveform, stt_confidence)
+            speaker_label, speaker_similarity, known_speakers = assign_speaker_label(utterance_waveform)
     elif QWEN_STT_BACKEND == "openai":
         transcript, utterance_waveform, stt_confidence = _audio_encoder.consume_buffered_speech_openai(pcm)
         if utterance_waveform is not None:
@@ -452,6 +540,7 @@ async def process_audio_chunk(audio: UploadFile = File(...)) -> dict[str, Any]:
             text = transcript
             latest_transcript = text
             commit_utterance_snapshot(text, utterance_waveform, stt_confidence)
+            speaker_label, speaker_similarity, known_speakers = assign_speaker_label(utterance_waveform)
     else:
         transcript, utterance_waveform, stt_confidence = _audio_encoder.consume_buffered_speech(pcm)
         if utterance_waveform is not None:
@@ -461,13 +550,22 @@ async def process_audio_chunk(audio: UploadFile = File(...)) -> dict[str, Any]:
             text = transcript
             latest_transcript = text
             commit_utterance_snapshot(text, utterance_waveform, stt_confidence)
+            speaker_label, speaker_similarity, known_speakers = assign_speaker_label(utterance_waveform)
+
+    if text and speaker_label:
+        print(
+            f"Speaker clustering assigned {speaker_label} "
+            f"(sim={speaker_similarity:.3f}, known={known_speakers}) for transcript: {text}"
+        )
 
     return {
         "text": text,
         "stt_confidence": stt_confidence,
         "prosody": [],
         "content": [],
-        "speaker": [],
+        "speaker": speaker_label,
+        "speaker_similarity": speaker_similarity,
+        "known_speakers": known_speakers,
         "fusion_emotion": "",
         "summary": "",
     }
