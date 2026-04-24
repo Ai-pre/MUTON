@@ -12,7 +12,9 @@ import torch
 import uvicorn
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from openai import OpenAI
 from PIL import Image
+from pydantic import BaseModel
 from transformers import Qwen2_5OmniProcessor, Qwen2_5OmniThinkerForConditionalGeneration
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -45,6 +47,11 @@ STT_SUMMARY_MIN_CONFIDENCE = float(env_str("MUTON_STT_SUMMARY_MIN_CONFIDENCE", "
 QWEN_STT_INSTRUCTION = env_str(
     "MUTON_QWEN_STT_PROMPT",
     "음성 내용을 한국어 자막용 문장으로 정확히 받아써라. 설명하지 말고 전사 결과만 출력해라.",
+)
+RECORD_SUMMARY_MODEL = env_str("MUTON_RECORD_SUMMARY_MODEL", "gpt-4o-mini")
+RECORD_SUMMARY_INSTRUCTION = env_str(
+    "MUTON_RECORD_SUMMARY_PROMPT",
+    "You summarize conversations in Korean. Return exactly one concise Korean sentence that captures the overall conversation topic and intent. Do not add labels, quotes, bullets, or explanations.",
 )
 
 
@@ -130,6 +137,10 @@ def pcm_bytes_to_waveform(raw_bytes: bytes) -> np.ndarray:
     return pcm_np / 32768.0
 
 
+class ConversationSummaryRequest(BaseModel):
+    conversation_text: str
+
+
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -169,6 +180,7 @@ committed_transcript_confidence = 0.0
 committed_timestamp = 0.0
 last_summary_key: tuple[float, str] | None = None
 last_summary_text = ""
+_record_summary_client: OpenAI | None = None
 
 
 def _generate_from_messages(
@@ -257,6 +269,56 @@ def generate_qwen_transcript(audio: np.ndarray) -> str:
         max_new_tokens=QWEN_STT_MAX_NEW_TOKENS,
         use_adapter=QWEN_STT_USE_ADAPTER,
     )
+
+
+def get_record_summary_client() -> OpenAI:
+    global _record_summary_client
+
+    if _record_summary_client is None:
+        api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY is not configured.")
+        _record_summary_client = OpenAI(api_key=api_key)
+    return _record_summary_client
+
+
+def _extract_response_output_text(response: Any) -> str:
+    output_text = getattr(response, "output_text", "") or ""
+    if output_text:
+        return output_text.strip()
+
+    for item in getattr(response, "output", []) or []:
+        for content in getattr(item, "content", []) or []:
+            text = getattr(content, "text", "") or ""
+            if text:
+                return text.strip()
+    return ""
+
+
+def generate_conversation_record_title(conversation_text: str) -> str:
+    normalized_text = conversation_text.strip()
+    if not normalized_text:
+        return ""
+
+    client = get_record_summary_client()
+    response = client.responses.create(
+        model=RECORD_SUMMARY_MODEL,
+        instructions=RECORD_SUMMARY_INSTRUCTION,
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": normalized_text,
+                    }
+                ],
+            }
+        ],
+        max_output_tokens=60,
+        truncation="auto",
+    )
+    return _extract_response_output_text(response)
 
 
 def consume_audio_buffer_for_qwen_stt(raw_bytes: bytes) -> tuple[str | None, np.ndarray | None, float]:
@@ -455,6 +517,21 @@ async def get_fusion_analysis(
         "summary": summary,
         "cls_attn": [],
     }
+
+
+@app.post("/summarize_conversation_record")
+async def summarize_conversation_record(payload: ConversationSummaryRequest) -> dict[str, str]:
+    conversation_text = payload.conversation_text.strip()
+    if not conversation_text:
+        return {"title": ""}
+
+    try:
+        title = generate_conversation_record_title(conversation_text)
+    except Exception as exc:
+        print(f"Conversation record summary error: {exc}")
+        return {"title": "", "error": "summary_failed"}
+
+    return {"title": title}
 
 
 if __name__ == "__main__":
