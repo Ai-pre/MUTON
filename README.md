@@ -195,6 +195,9 @@ MUTON/
 - wiki home: `wiki/Home.md`
 - installation: `wiki/Installation.md`
 - API reference: `wiki/API.md`
+- datasets: `wiki/Datasets.md`
+- training: `wiki/Training.md`
+- evaluation: `wiki/Evaluation.md`
 - architecture and model evolution: `wiki/Architecture.md`
 - request examples: `wiki/Examples.md`
 - Android client repository: [MUTON-Android](https://github.com/Ai-pre/MUTON-Android)

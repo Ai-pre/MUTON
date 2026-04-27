@@ -2,43 +2,64 @@
 
 ## System Evolution
 
-MUTON has two important pipeline stages in its development history.
+MUTON has two major architectural stages.
 
-### P-project
-<img width="1187" height="447" alt="파이프라인(p-project)" src="https://github.com/user-attachments/assets/b0e53b3b-c230-44fe-8d02-fdef0f2bf222" />
+## P-project Pipeline
 
-P-project used separate face, audio, and text encoders followed by a directly designed multimodal fusion Transformer. This version proved that a full streaming pipeline could be built and connected to the Android client, but summary quality was still limited by feature compression and a handcrafted generation flow.
+<img width="1187" height="447" alt="MUTON P-project pipeline" src="https://github.com/user-attachments/assets/b0e53b3b-c230-44fe-8d02-fdef0f2bf222" />
 
-### Graduation Project 2
-<img width="1237" height="395" alt="파이프라인(졸업작품2)" src="https://github.com/user-attachments/assets/cc9feac7-ec11-4e39-b25d-b5e6a9ac3db5" />
+The P-project pipeline used separate face, audio, and text encoders followed by a directly designed multimodal fusion Transformer.
 
-Graduation Project 2 kept the mobile streaming structure but changed the summary engine. After richer sequence experiments, the project moved to a Qwen2.5-Omni based path that accepts raw multimodal inputs more naturally and generates summaries with stronger pretrained multimodal reasoning.
+- Face path: face detection, alignment, ViT-based facial emotion features
+- Audio path: VAD, STT, WavLM-based speech features
+- Text path: Korean sentence embedding through a language encoder
+- Fusion path: encoder-only Transformer-based multimodal representation
+- Summary path: structured information was passed to a generation step
 
-## Current Runtime Pipeline
+This version proved the feasibility of the full system, but summary quality was limited by feature compression, limited training data, and a constrained generation flow.
 
-1. the client streams camera frames to `/process_video_chunk`
-2. the client streams PCM audio chunks to `/process_audio_chunk`
-3. the server buffers audio with VAD until one utterance is considered complete
-4. STT produces a transcript
-5. the server commits an utterance snapshot:
-   - transcript
-   - utterance waveform
-   - latest face image
-6. the client calls `/get_fusion_analysis`
-7. Qwen2.5-Omni generates a Korean multimodal summary from the committed snapshot
+## Graduation Project 2 Pipeline
 
-## Why The Pipeline Is Split
+<img width="1237" height="395" alt="MUTON Graduation Project 2 pipeline" src="https://github.com/user-attachments/assets/cc9feac7-ec11-4e39-b25d-b5e6a9ac3db5" />
 
-- STT and multimodal summary have different strengths
-- `whisper-1` is currently more robust for noisy subtitle transcription
-- Qwen2.5-Omni performs better as a multimodal reasoning and summary model
-- separating the two stages reduces error propagation and makes model replacement easier
+Graduation Project 2 keeps the Android streaming and FastAPI server structure, but the summary engine changed. The current runtime uses `whisper-1` for STT and `Qwen2.5-Omni + ko_stage LoRA` for multimodal summary generation.
+
+The key change is that raw multimodal context is now preserved longer. Instead of relying only on externally extracted encoder vectors, the server commits an utterance snapshot containing:
+
+- finalized transcript
+- utterance waveform
+- latest face image near the finalized utterance
+- STT confidence
+
+Qwen2.5-Omni then generates the final Korean summary from this committed snapshot.
+
+## Current Runtime Flow
+
+1. Android streams camera frames to `/process_video_chunk`.
+2. Android streams PCM audio chunks to `/process_audio_chunk`.
+3. The server uses VAD and buffering to detect utterance boundaries.
+4. STT produces a finalized Korean transcript.
+5. The server commits a synchronized utterance snapshot.
+6. Android calls `/get_fusion_analysis`.
+7. Qwen2.5-Omni generates the multimodal summary.
+8. Android displays subtitle, visual emotion, and summary output.
+
+## Why STT And Summary Are Split
+
+STT and multimodal reasoning have different reliability requirements. The current system keeps them separate because:
+
+- `whisper-1` is more reliable for Korean subtitle transcription in the live demo.
+- Qwen2.5-Omni is stronger as a multimodal reasoning and summary model.
+- Separating STT from summary makes latency and failure points easier to control.
+- The STT backend can be replaced without redesigning the summary model.
+- The Android app can keep the same UI even when backend model experiments change.
 
 ## Confidence Handling
 
-The server drops unreliable transcripts before they become summaries.
+The server suppresses unreliable outputs before they become misleading summaries.
 
-- low transcript confidence: subtitle suppressed
-- low committed confidence: summary returns `Low Confidence`
+- Very low-confidence transcripts are filtered at the STT stage.
+- Low committed STT confidence returns `Low Confidence` from `/get_fusion_analysis`.
+- Repeated-token and common hallucination patterns are filtered in the audio encoder path.
 
-This reduces garbage summaries caused by noisy audio.
+This is especially important in noisy environments, where a wrong transcript can produce a confident but incorrect summary.

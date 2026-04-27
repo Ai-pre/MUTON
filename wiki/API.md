@@ -2,10 +2,11 @@
 
 The current backend is implemented in `src/server_qwen.py`.
 
-Base URL example:
+Base URL examples:
 
 ```text
 http://127.0.0.1:5000
+https://xxxxx.trycloudflare.com
 ```
 
 FastAPI interactive docs:
@@ -16,11 +17,9 @@ http://127.0.0.1:5000/docs
 
 ## `GET /health`
 
-### Description
-
 Checks whether the backend is alive.
 
-### Response
+Response:
 
 ```json
 {
@@ -31,17 +30,14 @@ Checks whether the backend is alive.
 
 ## `POST /process_video_chunk`
 
-### Description
+Receives one JPEG frame, extracts face/emotion context, and caches the latest face image for the next summary step.
 
-Receives one JPEG frame and updates the latest visual state used by the summary model.
-
-### Request
+Request:
 
 - Content-Type: `multipart/form-data`
-- Field:
-  - `frame`: JPEG image file
+- `frame`: JPEG image file
 
-### Response
+Response:
 
 ```json
 {
@@ -51,28 +47,39 @@ Receives one JPEG frame and updates the latest visual state used by the summary 
 }
 ```
 
-### Notes
+Notes:
 
-- `emotion` is a 6-class mapped visual label for the mobile UI.
-- The image is cached as the latest face image for the next summary step.
+- `emotion` is the visual emotion label shown by the mobile UI.
+- The cached face image is used when an utterance snapshot is committed.
 
 ## `POST /process_audio_chunk`
 
-### Description
+Receives raw PCM audio chunks. The server buffers audio until an utterance boundary is detected, then runs STT.
 
-Receives raw PCM audio chunks. The server buffers them until an utterance boundary is detected, then runs STT.
-
-### Request
+Request:
 
 - Content-Type: `multipart/form-data`
-- Field:
-  - `audio`: raw PCM bytes sampled at `16kHz`, mono, `int16`
+- `audio`: raw PCM bytes, `16kHz`, mono, `int16`
 
-### Response
+Response while the utterance is still open:
 
 ```json
 {
-  "text": "hello, where are you going now?",
+  "text": "",
+  "stt_confidence": 0.0,
+  "prosody": [],
+  "content": [],
+  "speaker": [],
+  "fusion_emotion": "",
+  "summary": ""
+}
+```
+
+Response when an utterance is finalized:
+
+```json
+{
+  "text": "오늘 회의는 조금 급하게 진행되는 것 같아요.",
   "stt_confidence": 0.82,
   "prosody": [],
   "content": [],
@@ -82,34 +89,32 @@ Receives raw PCM audio chunks. The server buffers them until an utterance bounda
 }
 ```
 
-### Notes
+Notes:
 
-- `text` is empty until the server considers the utterance complete.
-- `stt_confidence` is used to suppress unreliable summaries.
-- In the current Qwen runtime path, `prosody`, `content`, and `speaker` remain for app compatibility and are not the main summary inputs.
+- `text` remains empty until the server considers the utterance complete.
+- `stt_confidence` is used by the summary stage to avoid unreliable outputs.
+- `prosody`, `content`, and `speaker` remain in the response for Android compatibility with earlier fusion experiments.
 
 ## `POST /get_fusion_analysis`
 
-### Description
+Generates a Korean multimodal summary from the committed utterance snapshot.
 
-Generates a multimodal Korean summary using the committed utterance snapshot:
+Committed snapshot:
 
 - finalized transcript
 - utterance waveform
 - latest face image at utterance-final time
+- STT confidence
 
-### Request
+Request:
 
 - Content-Type: `multipart/form-data`
-- Fields:
-  - `text`: transcript string
-  - `prosody`: JSON string, currently `"[]"`
-  - `content`: JSON string, currently `"[]"`
-  - `speaker`: JSON string, currently `"[]"`
+- `text`: transcript string
+- `prosody`: JSON string, usually `"[]"`
+- `content`: JSON string, usually `"[]"`
+- `speaker`: JSON string, usually `"[]"`
 
-### Response
-
-Successful case:
+Successful response:
 
 ```json
 {
@@ -117,12 +122,12 @@ Successful case:
   "fusion_confidence": 0.81,
   "arousal": 0.0,
   "valence": 0.0,
-  "summary": "The speaker sounds tense and appears to be explaining the situation carefully.",
+  "summary": "상대방이 급한 분위기에서 회의 진행 상황을 설명하고 있습니다.",
   "cls_attn": []
 }
 ```
 
-Low-confidence case:
+Low-confidence response:
 
 ```json
 {
@@ -135,7 +140,7 @@ Low-confidence case:
 }
 ```
 
-No visual input case:
+No visual input response:
 
 ```json
 {
@@ -144,10 +149,42 @@ No visual input case:
 }
 ```
 
+## `POST /summarize_conversation_record`
+
+Summarizes saved conversation text on the backend. This endpoint exists so the Android app does not need to store an OpenAI API key.
+
+Request:
+
+- Content-Type: `application/json`
+
+```json
+{
+  "conversation_text": "speaker: 오늘 회의는 조금 급하게 진행되는 것 같아요.\nlistener: 네, 핵심만 먼저 정리해 주세요."
+}
+```
+
+Response:
+
+```json
+{
+  "title": "회의 진행 상황을 빠르게 정리하는 대화"
+}
+```
+
+Failure response:
+
+```json
+{
+  "title": "",
+  "error": "summary_failed"
+}
+```
+
 ## Recommended Runtime Configuration
 
-For the best current mobile-demo behavior:
+```bash
+export MUTON_QWEN_STT_BACKEND=openai
+export MUTON_RECORD_SUMMARY_MODEL=gpt-4o-mini
+```
 
-- `MUTON_QWEN_STT_BACKEND=openai`
-- Qwen is used for multimodal summary generation
-- `whisper-1` is used for STT
+The current recommended path uses `whisper-1` for STT and Qwen2.5-Omni for multimodal summary generation.
