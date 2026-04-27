@@ -198,7 +198,3 @@ MUTON/
 - architecture and model evolution: `wiki/Architecture.md`
 - request examples: `wiki/Examples.md`
 - Android client repository: [MUTON-Android](https://github.com/Ai-pre/MUTON-Android)
-
-## License
-
-This repository does not currently include a dedicated license file. A final open-source license should be added before external redistribution or reuse.
