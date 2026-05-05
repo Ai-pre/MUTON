@@ -301,24 +301,36 @@ def generate_conversation_record_title(conversation_text: str) -> str:
         return ""
 
     client = get_record_summary_client()
-    response = client.responses.create(
+    if hasattr(client, "responses"):
+        response = client.responses.create(
+            model=RECORD_SUMMARY_MODEL,
+            instructions=RECORD_SUMMARY_INSTRUCTION,
+            input=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": normalized_text,
+                        }
+                    ],
+                }
+            ],
+            max_output_tokens=60,
+            truncation="auto",
+        )
+        return _extract_response_output_text(response)
+
+    response = client.chat.completions.create(
         model=RECORD_SUMMARY_MODEL,
-        instructions=RECORD_SUMMARY_INSTRUCTION,
-        input=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": normalized_text,
-                    }
-                ],
-            }
+        messages=[
+            {"role": "system", "content": RECORD_SUMMARY_INSTRUCTION},
+            {"role": "user", "content": normalized_text},
         ],
-        max_output_tokens=60,
-        truncation="auto",
+        temperature=0.2,
+        max_tokens=60,
     )
-    return _extract_response_output_text(response)
+    return (response.choices[0].message.content or "").strip()
 
 
 def consume_audio_buffer_for_qwen_stt(raw_bytes: bytes) -> tuple[str | None, np.ndarray | None, float]:
