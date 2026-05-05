@@ -67,7 +67,7 @@ Optional runtime switches:
 
 - `MUTON_QWEN_STT_BACKEND=openai` uses OpenAI `whisper-1`.
 - `MUTON_QWEN_STT_BACKEND=local` uses the local Korean Whisper fallback.
-- `MUTON_RECORD_SUMMARY_MODEL=gpt-4o-mini` controls the server-side record summary model.
+- `MUTON_RECORD_SUMMARY_MODEL=gpt-4o` controls the server-side record summary model.
 
 ## Prepare Datasets
 

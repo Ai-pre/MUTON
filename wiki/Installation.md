@@ -58,7 +58,7 @@ export MUTON_QWEN_ADAPTER=/path/to/out/qwen_omni_lora/ko_stage
 Optional variables:
 
 ```bash
-export MUTON_RECORD_SUMMARY_MODEL=gpt-4o-mini
+export MUTON_RECORD_SUMMARY_MODEL=gpt-4o
 export MUTON_STT_SUMMARY_MIN_CONFIDENCE=0.55
 export MUTON_QWEN_STT_BACKEND=local
 ```

@@ -184,7 +184,7 @@ Failure response:
 
 ```bash
 export MUTON_QWEN_STT_BACKEND=openai
-export MUTON_RECORD_SUMMARY_MODEL=gpt-4o-mini
+export MUTON_RECORD_SUMMARY_MODEL=gpt-4o
 ```
 
 The current recommended path uses `whisper-1` for STT and Qwen2.5-Omni for multimodal summary generation.

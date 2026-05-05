@@ -48,7 +48,7 @@ QWEN_STT_INSTRUCTION = env_str(
     "MUTON_QWEN_STT_PROMPT",
     "음성 내용을 한국어 자막용 문장으로 정확히 받아써라. 설명하지 말고 전사 결과만 출력해라.",
 )
-RECORD_SUMMARY_MODEL = env_str("MUTON_RECORD_SUMMARY_MODEL", "gpt-4o-mini")
+RECORD_SUMMARY_MODEL = env_str("MUTON_RECORD_SUMMARY_MODEL", "gpt-4o")
 RECORD_SUMMARY_INSTRUCTION = env_str(
     "MUTON_RECORD_SUMMARY_PROMPT",
     "You summarize conversations in Korean. Return exactly one concise Korean sentence that captures the overall conversation topic and intent. Do not add labels, quotes, bullets, or explanations.",
