@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import base64
 from contextlib import nullcontext
+import io
 import os
 import sys
 import time
+import wave
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +42,15 @@ QWEN_ADAPTER = str(env_path("MUTON_QWEN_ADAPTER", "out/qwen_omni_lora/ko_stage")
 QWEN_MAX_NEW_TOKENS = int(env_str("MUTON_QWEN_MAX_NEW_TOKENS", "64"))
 QWEN_DTYPE = env_str("MUTON_QWEN_TORCH_DTYPE", "bfloat16")
 QWEN_DEVICE_MAP_MODE = env_str("MUTON_QWEN_DEVICE_MAP", "single").lower()
+QWEN_SUMMARY_BACKEND = env_str("MUTON_QWEN_SUMMARY_BACKEND", "qwen35_api").lower()
+QWEN35_MODEL_NAME = env_str("MUTON_QWEN35_MODEL_NAME", "qwen3.5-omni-plus")
+QWEN35_BASE_URL = env_str("MUTON_QWEN35_BASE_URL", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
+QWEN35_INPUT_MODE = env_str("MUTON_QWEN35_INPUT_MODE", "image_audio").lower()
+QWEN35_IMAGE_MAX_SIDE = int(env_str("MUTON_QWEN35_IMAGE_MAX_SIDE", "640"))
+QWEN35_USER_INSTRUCTION = env_str(
+    "MUTON_QWEN35_USER_PROMPT",
+    "다음 얼굴 이미지, 발화 오디오, 대사 텍스트를 함께 참고해서 화자의 감정, 말투, 의도, 상황을 한국어 한 문장으로 요약해라. 설명이나 라벨 없이 요약문만 출력해라.",
+)
 QWEN_STT_BACKEND = env_str("MUTON_QWEN_STT_BACKEND", "whisper").lower()
 QWEN_STT_MAX_NEW_TOKENS = int(env_str("MUTON_QWEN_STT_MAX_NEW_TOKENS", "128"))
 QWEN_STT_USE_ADAPTER = env_str("MUTON_QWEN_STT_USE_ADAPTER", "false").lower() == "true"
@@ -137,6 +149,30 @@ def pcm_bytes_to_waveform(raw_bytes: bytes) -> np.ndarray:
     return pcm_np / 32768.0
 
 
+def image_to_data_url(image: Image.Image) -> str:
+    prepared = image.convert("RGB").copy()
+    prepared.thumbnail((QWEN35_IMAGE_MAX_SIDE, QWEN35_IMAGE_MAX_SIDE))
+    buffer = io.BytesIO()
+    prepared.save(buffer, format="JPEG", quality=85, optimize=True)
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/jpeg;base64,{encoded}"
+
+
+def audio_to_wav_data_url(audio: np.ndarray, sample_rate: int = 16000) -> str:
+    clipped = np.clip(audio.astype(np.float32, copy=False), -1.0, 1.0)
+    pcm = (clipped * 32767.0).astype(np.int16)
+
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(pcm.tobytes())
+
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:audio/wav;base64,{encoded}"
+
+
 class ConversationSummaryRequest(BaseModel):
     conversation_text: str
 
@@ -150,23 +186,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_torch_dtype = parse_torch_dtype(QWEN_DTYPE)
-_device_map = resolve_qwen_device_map()
-_processor = Qwen2_5OmniProcessor.from_pretrained(QWEN_ADAPTER if Path(QWEN_ADAPTER).exists() else QWEN_MODEL_NAME)
-_model = Qwen2_5OmniThinkerForConditionalGeneration.from_pretrained(
-    QWEN_MODEL_NAME,
-    torch_dtype=_torch_dtype,
-    device_map=_device_map,
-)
-if Path(QWEN_ADAPTER).exists():
-    from peft import PeftModel
+LOCAL_SUMMARY_BACKENDS = {"local", "qwen25", "qwen2.5", "qwen2.5_omni"}
+_needs_local_qwen = QWEN_SUMMARY_BACKEND in LOCAL_SUMMARY_BACKENDS or QWEN_STT_BACKEND == "qwen"
+_processor: Qwen2_5OmniProcessor | None = None
+_model: Qwen2_5OmniThinkerForConditionalGeneration | Any | None = None
 
-    _model = PeftModel.from_pretrained(_model, QWEN_ADAPTER)
-_model.eval()
+if _needs_local_qwen:
+    _torch_dtype = parse_torch_dtype(QWEN_DTYPE)
+    _device_map = resolve_qwen_device_map()
+    _processor = Qwen2_5OmniProcessor.from_pretrained(QWEN_ADAPTER if Path(QWEN_ADAPTER).exists() else QWEN_MODEL_NAME)
+    _model = Qwen2_5OmniThinkerForConditionalGeneration.from_pretrained(
+        QWEN_MODEL_NAME,
+        torch_dtype=_torch_dtype,
+        device_map=_device_map,
+    )
+    if Path(QWEN_ADAPTER).exists():
+        from peft import PeftModel
+
+        _model = PeftModel.from_pretrained(_model, QWEN_ADAPTER)
+    _model.eval()
+else:
+    print(f"Skipping local Qwen2.5-Omni load because MUTON_QWEN_SUMMARY_BACKEND={QWEN_SUMMARY_BACKEND}")
 
 _face_encoder = FaceEncoder()
 _audio_encoder = AudioEncoder()
-_audio_sampling_rate = getattr(_processor.feature_extractor, "sampling_rate", 16000)
+_audio_sampling_rate = getattr(_processor.feature_extractor, "sampling_rate", 16000) if _processor is not None else 16000
 
 latest_face_image: Image.Image | None = None
 latest_face_timestamp = 0.0
@@ -181,6 +225,7 @@ committed_timestamp = 0.0
 last_summary_key: tuple[float, str] | None = None
 last_summary_text = ""
 _record_summary_client: OpenAI | None = None
+_qwen35_client: OpenAI | None = None
 
 
 def _generate_from_messages(
@@ -189,6 +234,9 @@ def _generate_from_messages(
     max_new_tokens: int,
     use_adapter: bool,
 ) -> str:
+    if _processor is None or _model is None:
+        raise RuntimeError("Local Qwen2.5-Omni model is not loaded.")
+
     inputs = _processor.apply_chat_template(
         [messages],
         tokenize=True,
@@ -229,6 +277,94 @@ def _generate_from_messages(
     return generated_text.strip()
 
 
+def get_qwen35_client() -> OpenAI:
+    global _qwen35_client
+
+    if _qwen35_client is None:
+        api_key = os.environ.get("DASHSCOPE_API_KEY", "").strip() or os.environ.get("MUTON_QWEN35_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("DASHSCOPE_API_KEY or MUTON_QWEN35_API_KEY is not configured.")
+        _qwen35_client = OpenAI(api_key=api_key, base_url=QWEN35_BASE_URL)
+    return _qwen35_client
+
+
+def collect_stream_text(completion: Any) -> str:
+    parts: list[str] = []
+    for chunk in completion:
+        choices = getattr(chunk, "choices", None) or []
+        if not choices:
+            continue
+        delta = getattr(choices[0], "delta", None)
+        content = getattr(delta, "content", None) if delta is not None else None
+        if content:
+            parts.append(str(content))
+    return "".join(parts).strip()
+
+
+def call_qwen35_messages(messages: list[dict[str, Any]]) -> str:
+    client = get_qwen35_client()
+    completion = client.chat.completions.create(
+        model=QWEN35_MODEL_NAME,
+        messages=messages,
+        modalities=["text"],
+        stream=True,
+        stream_options={"include_usage": True},
+    )
+    return collect_stream_text(completion)
+
+
+def build_qwen35_messages(
+    image: Image.Image | None,
+    audio: np.ndarray | None,
+    script: str,
+    *,
+    input_mode: str,
+) -> list[dict[str, Any]]:
+    messages: list[dict[str, Any]] = [
+        {
+            "role": "system",
+            "content": "You are Qwen3.5-Omni. Summarize multimodal conversation context in concise Korean.",
+        }
+    ]
+
+    normalized_script = script.strip()
+    if input_mode in {"image", "image_audio", "audio_image"} and image is not None:
+        messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": image_to_data_url(image)}},
+                    {"type": "text", "text": "이 얼굴 이미지는 현재 발화자의 표정과 시각적 맥락이다."},
+                ],
+            }
+        )
+
+    if input_mode in {"audio", "image_audio", "audio_image"} and audio is not None and audio.size > 0:
+        messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_audio",
+                        "input_audio": {
+                            "data": audio_to_wav_data_url(audio, _audio_sampling_rate),
+                            "format": "wav",
+                        },
+                    },
+                    {"type": "text", "text": "이 오디오는 같은 발화의 음성 톤과 말투 정보다."},
+                ],
+            }
+        )
+
+    messages.append(
+        {
+            "role": "user",
+            "content": f"{QWEN35_USER_INSTRUCTION}\n\n대사: {normalized_script}",
+        }
+    )
+    return messages
+
+
 def get_cached_face_image(jpeg_bytes: bytes) -> tuple[Image.Image | None, str]:
     frame_bgr = _face_encoder.decode_jpeg(jpeg_bytes)
     if frame_bgr is None:
@@ -244,6 +380,17 @@ def get_cached_face_image(jpeg_bytes: bytes) -> tuple[Image.Image | None, str]:
 
 
 def generate_qwen_summary(script: str, face_image: Image.Image | None, audio: np.ndarray | None) -> str:
+    if QWEN_SUMMARY_BACKEND not in LOCAL_SUMMARY_BACKENDS:
+        messages = build_qwen35_messages(face_image, audio, script, input_mode=QWEN35_INPUT_MODE)
+        try:
+            return call_qwen35_messages(messages)
+        except Exception as exc:
+            if QWEN35_INPUT_MODE == "image_audio" and face_image is not None and audio is not None and audio.size > 0:
+                print(f"Qwen3.5-Omni image+audio summary failed, retrying image-only: {exc}")
+                image_only_messages = build_qwen35_messages(face_image, None, script, input_mode="image")
+                return call_qwen35_messages(image_only_messages)
+            raise
+
     messages = build_runtime_messages(face_image, audio, script)
     return _generate_from_messages(messages, max_new_tokens=QWEN_MAX_NEW_TOKENS, use_adapter=True)
 
@@ -517,7 +664,18 @@ async def get_fusion_analysis(
     if last_summary_key == summary_key and last_summary_text:
         summary = last_summary_text
     else:
-        summary = generate_qwen_summary(script, committed_face_image, committed_audio_waveform)
+        try:
+            summary = generate_qwen_summary(script, committed_face_image, committed_audio_waveform)
+        except Exception as exc:
+            print(f"Qwen summary error: {exc}")
+            return {
+                "fusion_emotion": "Model Error",
+                "fusion_confidence": committed_transcript_confidence,
+                "arousal": 0.0,
+                "valence": 0.0,
+                "summary": "",
+                "cls_attn": [],
+            }
         last_summary_key = summary_key
         last_summary_text = summary
 
