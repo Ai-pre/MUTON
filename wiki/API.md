@@ -180,6 +180,41 @@ Failure response:
 }
 ```
 
+## `POST /eval/generate_summary`
+
+Generates a summary from explicitly supplied evaluation inputs. This endpoint is intended for benchmarking and ablation studies, not for the Android runtime.
+
+It is disabled by default. Enable it before starting the server:
+
+```bash
+export MUTON_ENABLE_EVAL_ENDPOINTS=true
+```
+
+Request:
+
+- Content-Type: `multipart/form-data`
+- `text`: transcript string
+- `mode`: `text`, `text_face`, `text_audio`, or `full`
+- `use_adapter`: `true` for LoRA, `false` for base model
+- `frame`: JPEG image file when the mode uses face input
+- `audio`: raw PCM or WAV bytes when the mode uses audio input
+- `audio_format`: `pcm` or `wav`
+
+Response:
+
+```json
+{
+  "summary": "상대방이 급한 분위기에서 회의 진행 상황을 설명하고 있습니다.",
+  "mode": "full",
+  "use_adapter": true,
+  "face_used": true,
+  "audio_used": true,
+  "latency_sec": 4.21,
+  "model": "Qwen/Qwen2.5-Omni-7B",
+  "adapter": "/path/to/out/qwen_omni_lora/ko_stage"
+}
+```
+
 ## Recommended Runtime Configuration
 
 ```bash

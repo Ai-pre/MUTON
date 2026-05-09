@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+import io
 import os
 import sys
 import time
+import wave
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
 import uvicorn
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from PIL import Image
@@ -44,6 +46,7 @@ QWEN_STT_MAX_NEW_TOKENS = int(env_str("MUTON_QWEN_STT_MAX_NEW_TOKENS", "128"))
 QWEN_STT_USE_ADAPTER = env_str("MUTON_QWEN_STT_USE_ADAPTER", "false").lower() == "true"
 CACHE_TTL_SEC = float(env_str("MUTON_CACHE_TTL_SEC", "3.0"))
 STT_SUMMARY_MIN_CONFIDENCE = float(env_str("MUTON_STT_SUMMARY_MIN_CONFIDENCE", "0.55"))
+ENABLE_EVAL_ENDPOINTS = env_str("MUTON_ENABLE_EVAL_ENDPOINTS", "false").lower() == "true"
 QWEN_STT_INSTRUCTION = env_str(
     "MUTON_QWEN_STT_PROMPT",
     "음성 내용을 한국어 자막용 문장으로 정확히 받아써라. 설명하지 말고 전사 결과만 출력해라.",
@@ -135,6 +138,41 @@ def pcm_bytes_to_waveform(raw_bytes: bytes) -> np.ndarray:
     if pcm_np.size == 0:
         return np.zeros(0, dtype=np.float32)
     return pcm_np / 32768.0
+
+
+def wav_bytes_to_waveform(raw_bytes: bytes) -> np.ndarray:
+    with wave.open(io.BytesIO(raw_bytes), "rb") as wav_file:
+        channels = wav_file.getnchannels()
+        sample_width = wav_file.getsampwidth()
+        sample_rate = wav_file.getframerate()
+        frames = wav_file.readframes(wav_file.getnframes())
+
+    if sample_width != 2:
+        raise ValueError("Only 16-bit PCM WAV files are supported.")
+    if sample_rate != 16000:
+        raise ValueError(f"Expected 16kHz WAV audio, got {sample_rate}Hz.")
+
+    pcm = np.frombuffer(frames, dtype=np.int16)
+    if channels > 1:
+        pcm = pcm.reshape(-1, channels).mean(axis=1).astype(np.int16)
+    return pcm.astype(np.float32) / 32768.0
+
+
+def decode_eval_audio(raw_bytes: bytes, audio_format: str) -> np.ndarray:
+    normalized = audio_format.strip().lower()
+    if normalized == "wav":
+        return wav_bytes_to_waveform(raw_bytes)
+    if normalized == "pcm":
+        return pcm_bytes_to_waveform(raw_bytes)
+    raise ValueError(f"Unsupported audio_format: {audio_format}")
+
+
+def mode_uses_face(mode: str) -> bool:
+    return mode.strip().lower() in {"full", "text_face", "face_text", "text_image", "image_text"}
+
+
+def mode_uses_audio(mode: str) -> bool:
+    return mode.strip().lower() in {"full", "text_audio", "audio_text"}
 
 
 class ConversationSummaryRequest(BaseModel):
@@ -246,6 +284,17 @@ def get_cached_face_image(jpeg_bytes: bytes) -> tuple[Image.Image | None, str]:
 def generate_qwen_summary(script: str, face_image: Image.Image | None, audio: np.ndarray | None) -> str:
     messages = build_runtime_messages(face_image, audio, script)
     return _generate_from_messages(messages, max_new_tokens=QWEN_MAX_NEW_TOKENS, use_adapter=True)
+
+
+def generate_eval_summary(
+    script: str,
+    face_image: Image.Image | None,
+    audio: np.ndarray | None,
+    *,
+    use_adapter: bool,
+) -> str:
+    messages = build_runtime_messages(face_image, audio, script)
+    return _generate_from_messages(messages, max_new_tokens=QWEN_MAX_NEW_TOKENS, use_adapter=use_adapter)
 
 
 def commit_utterance_snapshot(transcript: str, waveform: np.ndarray | None, confidence: float) -> None:
@@ -528,6 +577,63 @@ async def get_fusion_analysis(
         "valence": 0.0,
         "summary": summary,
         "cls_attn": [],
+    }
+
+
+@app.post("/eval/generate_summary")
+async def eval_generate_summary(
+    text: str = Form(...),
+    mode: str = Form("full"),
+    use_adapter: bool = Form(True),
+    frame: UploadFile | None = File(None),
+    audio: UploadFile | None = File(None),
+    audio_format: str = Form("pcm"),
+) -> dict[str, Any]:
+    if not ENABLE_EVAL_ENDPOINTS:
+        raise HTTPException(status_code=403, detail="Evaluation endpoints are disabled.")
+
+    started = time.perf_counter()
+    script = text.strip()
+    if not script:
+        raise HTTPException(status_code=400, detail="text is required.")
+
+    normalized_mode = mode.strip().lower()
+    if normalized_mode not in {"full", "text", "text_face", "face_text", "text_image", "image_text", "text_audio", "audio_text"}:
+        raise HTTPException(status_code=400, detail=f"Unsupported mode: {mode}")
+
+    face_image: Image.Image | None = None
+    waveform: np.ndarray | None = None
+
+    if mode_uses_face(normalized_mode):
+        if frame is None:
+            raise HTTPException(status_code=400, detail=f"mode={mode} requires frame.")
+        image, source = get_cached_face_image(await frame.read())
+        if image is None:
+            raise HTTPException(status_code=400, detail=f"Failed to decode frame: {source}")
+        face_image = image
+
+    if mode_uses_audio(normalized_mode):
+        if audio is None:
+            raise HTTPException(status_code=400, detail=f"mode={mode} requires audio.")
+        try:
+            waveform = decode_eval_audio(await audio.read(), audio_format)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        summary = generate_eval_summary(script, face_image, waveform, use_adapter=use_adapter)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"summary_failed: {exc}") from exc
+
+    return {
+        "summary": summary,
+        "mode": normalized_mode,
+        "use_adapter": use_adapter,
+        "face_used": face_image is not None,
+        "audio_used": waveform is not None,
+        "latency_sec": round(time.perf_counter() - started, 4),
+        "model": QWEN_MODEL_NAME,
+        "adapter": QWEN_ADAPTER if use_adapter else "",
     }
 
 

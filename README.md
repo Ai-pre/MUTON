@@ -200,4 +200,5 @@ MUTON/
 - evaluation: `wiki/Evaluation.md`
 - architecture and model evolution: `wiki/Architecture.md`
 - request examples: `wiki/Examples.md`
+- evaluation pipeline: `docs/EVALUATION.md`
 - Android client repository: [MUTON-Android](https://github.com/Ai-pre/MUTON-Android)

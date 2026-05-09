@@ -2,6 +2,18 @@
 
 MUTON should be evaluated as both a model pipeline and a real-time mobile service.
 
+The repository includes a runtime evaluation script:
+
+```text
+scripts/evaluate_runtime_pipeline.py
+```
+
+Detailed usage is documented in:
+
+```text
+docs/EVALUATION.md
+```
+
 ## STT Evaluation
 
 STT quality is important because summary generation depends on the finalized transcript.
@@ -16,6 +28,14 @@ Recommended checks:
 - latency from speech end to subtitle display
 
 The current recommended STT path is `OpenAI whisper-1`. The local Korean Whisper backend can be used as a comparison path.
+
+The evaluation script writes `stt_results.csv` with:
+
+- CER
+- WER
+- STT confidence
+- mean chunk latency
+- total STT latency
 
 ## Multimodal Summary Evaluation
 
@@ -34,6 +54,15 @@ Useful comparison:
 - Graduation Project 2 Qwen2.5-Omni output
 - text-only summary baseline
 
+The runtime evaluation endpoint supports:
+
+- `text`
+- `text_face`
+- `text_audio`
+- `full`
+
+It also supports `base` vs `lora` comparison through the `use_adapter` flag.
+
 ## Service Evaluation
 
 Because MUTON is a mobile real-time system, service-level evaluation is as important as model quality.
@@ -48,6 +77,8 @@ Recommended checks:
 - behavior when the backend URL changes
 - behavior when there is no visual input
 - behavior when STT confidence is low
+
+The script writes `summary_results.csv`, `summary_human_eval_template.csv`, `results.json`, and `report.md` under the selected output directory.
 
 ## User-Centered Evaluation
 
