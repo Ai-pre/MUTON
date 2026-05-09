@@ -74,6 +74,41 @@ Audio requirements:
 - WAV: `16kHz`, mono or stereo, 16-bit PCM
 - PCM: raw `16kHz`, mono, `int16`
 
+## Prepare Manifest From MELD
+
+If you only have MELD Raw mp4 files, generate evaluation samples from the MELD CSV:
+
+```bash
+python scripts/prepare_meld_eval_manifest.py \
+  --csv data/MELD/MELD.Raw/train_sent_emo.csv \
+  --videos_root data/MELD/MELD.Raw/train_splits \
+  --output_dir out/eval_meld_samples \
+  --manifest out/eval_manifest_meld.json \
+  --max_samples 20 \
+  --emotion_balanced \
+  --translate \
+  --make_reference_summary
+```
+
+Depending on the local MELD layout, `--videos_root` may be one of:
+
+```text
+data/MELD/MELD.Raw/train_splits
+data/MELD/MELD.Raw/dev_splits_complete
+data/MELD/MELD.Raw/output_repeated_splits_test
+data/MELD/MELD.Raw
+```
+
+The script creates:
+
+```text
+out/eval_meld_samples/frames/*.jpg
+out/eval_meld_samples/audio/*.wav
+out/eval_manifest_meld.json
+```
+
+If `--translate` is omitted, `reference_text` keeps the English MELD utterance. For the MUTON report, Korean translated text is recommended.
+
 ## Run Evaluation
 
 ```bash

@@ -14,6 +14,14 @@ Detailed usage is documented in:
 docs/EVALUATION.md
 ```
 
+If only MELD Raw mp4 files are available, use:
+
+```text
+scripts/prepare_meld_eval_manifest.py
+```
+
+This script extracts representative frames, 16kHz WAV audio, translated reference text, and reference summaries into an evaluation manifest.
+
 ## STT Evaluation
 
 STT quality is important because summary generation depends on the finalized transcript.
