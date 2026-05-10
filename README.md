@@ -159,6 +159,8 @@ The project is evaluated from both model and service perspectives:
 - Robustness: behavior under noisy environments, weak network conditions, and changing Cloudflare tunnel URLs.
 - Comparison baseline: P-project fusion Transformer outputs versus the Qwen2.5-Omni based Graduation Project 2 pipeline.
 
+Current Graduation Project 2 evaluation results are summarized in [`docs/EVALUATION_RESULTS.md`](docs/EVALUATION_RESULTS.md). The evaluation includes Qwen2.5-Omni base vs LoRA comparison, multimodal input ablation, human-style semantic scoring, qualitative examples, and runtime STT latency.
+
 ## Android Integration
 
 The Android client lives in a separate repository:

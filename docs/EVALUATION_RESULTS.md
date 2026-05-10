@@ -1,0 +1,102 @@
+# MUTON Evaluation Results
+
+This document summarizes the current Graduation Project 2 evaluation results for the Qwen2.5-Omni runtime.
+
+The evaluation focuses on three parts:
+
+- Automatic summary comparison between the base model and the LoRA-adapted model
+- Human-style semantic scoring for output quality
+- Runtime STT evaluation through the same chunk/VAD path used by the service
+
+## Runtime Configuration
+
+- Summary model: Qwen2.5-Omni-7B
+- Adaptation: `ko_stage` LoRA adapter
+- STT backend: OpenAI `whisper-1`
+- Summary inputs: text, text + audio, text + face, text + face + audio
+- Evaluation sample count: 30
+
+## Automatic Summary Evaluation
+
+ROUGE-L F1 was used as an auxiliary automatic metric. Because MUTON generates short Korean descriptions of emotion, tone, and situation, ROUGE-L should be interpreted as a relative comparison metric rather than an absolute quality score.
+
+| Model | Input | Samples | ROUGE-L F1 | Latency |
+|---|---:|---:|---:|---:|
+| Qwen2.5-Omni Base | Text | 30 | 0.0217 | 2.7327s |
+| Qwen2.5-Omni Base | Text + Audio | 30 | 0.0154 | 2.6604s |
+| Qwen2.5-Omni Base | Text + Face | 30 | 0.0252 | 3.2294s |
+| Qwen2.5-Omni Base | Text + Face + Audio | 30 | 0.0265 | 3.3456s |
+| Qwen2.5-Omni + LoRA | Text | 30 | 0.1126 | 2.3393s |
+| Qwen2.5-Omni + LoRA | Text + Audio | 30 | 0.1074 | 2.1112s |
+| Qwen2.5-Omni + LoRA | Text + Face | 30 | 0.1616 | 3.2464s |
+| Qwen2.5-Omni + LoRA | Text + Face + Audio | 30 | 0.1405 | 3.2301s |
+
+LoRA adaptation improved ROUGE-L F1 in every input setting. The strongest automatic score appeared in the Text + Face setting, while the full multimodal setting also showed a clear improvement over the base model.
+
+## Human-Style Semantic Evaluation
+
+To compensate for the limitations of ROUGE-L, 30 paired samples were evaluated with four 1-5 scoring criteria:
+
+- Emotion reflection: whether the output reflects emotion, facial expression, and tone
+- Intent reflection: whether the output reflects speaker intent and situation
+- Fluency: whether the Korean sentence is natural, concise, and suitable as an app caption
+- Faithfulness: whether the output avoids unsupported hallucination
+
+| Model | Emotion Reflection | Intent Reflection | Fluency | Faithfulness | Total Score |
+|---|---:|---:|---:|---:|---:|
+| Qwen2.5-Omni Base | 2.77 | 2.90 | 2.17 | 2.90 | 10.73 / 20 |
+| Qwen2.5-Omni + LoRA | 4.00 | 4.23 | 4.33 | 4.03 | 16.60 / 20 |
+
+In the 30 paired comparisons, the LoRA-adapted model was selected as the better output in 29 samples, while the base model was selected in 1 sample.
+
+The biggest difference appeared in fluency. The base model often produced chatbot-style responses such as follow-up questions or long explanations, while the LoRA-adapted model more consistently produced short observational captions suitable for MUTON.
+
+## STT Runtime Evaluation
+
+STT was evaluated separately on Korean speech samples because MELD audio is originally English while the project target is Korean real-time conversation.
+
+The test used the same runtime path as the Android service: audio chunk transmission, VAD-based utterance buffering, and final transcript return.
+
+| Samples | CER | WER | Latency |
+|---:|---:|---:|---:|
+| 30 | 0.5534 | 0.8180 | 1.4071s |
+
+The STT scores should be interpreted as runtime pipeline results rather than pure file-level Whisper accuracy. CER and WER are affected by short utterances, chunk size, and utterance-boundary detection. The latency result is useful as evidence that the STT path can operate in a near-real-time setting.
+
+## Qualitative Examples
+
+### Example 1
+
+| Field | Content |
+|---|---|
+| Sample | `meld_d0_u1` |
+| Input | 뭐? |
+| Reference | 짧은 '뭐?'라는 말과 함께 입술이 살짝 벌어지고 눈이 커진 표정으로 상대방의 말을 다시 듣는 태도. |
+| Base | 이 사람이 뭔가 의아한 듯한 표정으로 “뭐?”라고 말하면서, 아마도 갑작스러운 상황에 당황하거나 의아함을 느끼고 있을 것 같아. 어떻게 보셨나요? 의견 나누는 거 좋아해요. |
+| LoRA | 눈을 크게 뜨고 입술을 벌린 채 놀란 표정으로 '뭐?'라고 묻는다. |
+
+### Example 2
+
+| Field | Content |
+|---|---|
+| Sample | `meld_d11_u5` |
+| Input | 알겠어, 알겠어, 알겠어, 자, 일단 진정해, 근데 좀 잃어버렸어. |
+| Reference | 입술이 살짝 벌어지고 눈이 감긴 채로 반복되는 말투로 상황을 정리하며 진정시키려는 태도를 보인다. |
+| Base | 이 사람이 지금은 조금 당황한 듯한 느낌이야. 어째서인지 잃었던 것 같아서 그런 거 같아. 어떻게 된 건지 잘 모르겠지만, 그래도 다들 걱정하지 말라고 말하는 것 같은데. 이 상황이 뭔지 |
+| LoRA | 눈을 감고 입술을 다물며, 반복되는 말과 잠시 멈춘 후 다시 시작하는 어조로 위로를 건네는 듯한 태세. |
+
+### Example 3
+
+| Field | Content |
+|---|---|
+| Sample | `meld_d12_u4` |
+| Input | 세상에! 왜 도망칠 가능성이 있는 사람과 숨바꼭질을 해? |
+| Reference | 입술을 벌리고 눈을 감은 채 놀란 표정으로 도망칠 수 있는 사람과 숨바꼭질을 하는 상황에 대해 탄식하는 어조로 반응. |
+| Base | 이 여자는 당황한 듯한 표정으로 놀란 태세를 하고 있어 보여. 그녀는 누군가와 숨비를 하는 것에 대해 크게 농담하는 듯하지만, 사실상의 위험을 느끼고 있나보다. |
+| LoRA | 화난 표정으로 놀란 어조로 숨 바꼭질 가능성에 대한 비난. |
+
+## Interpretation
+
+The evaluation supports the main Graduation Project 2 direction: moving from a manually designed fusion pipeline to a pretrained multimodal generation model with LoRA adaptation. The LoRA-adapted Qwen2.5-Omni model better matches the target output style of MUTON: concise Korean captions that reflect emotion, attitude, and context.
+
+ROUGE-L remains useful as an automatic relative metric, but the human-style semantic evaluation is more important for this task because many valid summaries can use different wording.

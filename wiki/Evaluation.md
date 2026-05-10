@@ -14,6 +14,12 @@ Detailed usage is documented in:
 docs/EVALUATION.md
 ```
 
+The current Graduation Project 2 result summary is documented in:
+
+```text
+docs/EVALUATION_RESULTS.md
+```
+
 If only MELD Raw mp4 files are available, use:
 
 ```text
@@ -87,6 +93,25 @@ Recommended checks:
 - behavior when STT confidence is low
 
 The script writes `summary_results.csv`, `summary_human_eval_template.csv`, `results.json`, and `report.md` under the selected output directory.
+
+## Current Result Summary
+
+The current Qwen2.5-Omni evaluation compares the base model with the `ko_stage` LoRA adapter on 30 samples. ROUGE-L is used only as an auxiliary relative metric because the task is open-ended Korean emotion and situation summarization.
+
+| Model | Input | ROUGE-L F1 | Latency |
+|---|---:|---:|---:|
+| Qwen2.5-Omni Base | Text + Face + Audio | 0.0265 | 3.3456s |
+| Qwen2.5-Omni + LoRA | Text + Face + Audio | 0.1405 | 3.2301s |
+| Qwen2.5-Omni + LoRA | Text + Face | 0.1616 | 3.2464s |
+
+Human-style semantic scoring was also used to evaluate emotion reflection, intent reflection, fluency, and faithfulness.
+
+| Model | Emotion | Intent | Fluency | Faithfulness | Total |
+|---|---:|---:|---:|---:|---:|
+| Qwen2.5-Omni Base | 2.77 | 2.90 | 2.17 | 2.90 | 10.73 / 20 |
+| Qwen2.5-Omni + LoRA | 4.00 | 4.23 | 4.33 | 4.03 | 16.60 / 20 |
+
+The LoRA-adapted model was selected as the better output in 29 of 30 paired comparisons. This suggests that adaptation mainly improved the output style: shorter, less chatbot-like, and more suitable for MUTON's captioning use case.
 
 ## User-Centered Evaluation
 
