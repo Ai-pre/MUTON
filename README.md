@@ -134,7 +134,7 @@ git push origin server_main
 The Android app reads:
 
 ```text
-https://raw.githubusercontent.com/Ai-pre/MUTON/server_main/backend_url.json
+https://raw.githubusercontent.com/Ai-pre/MUTON/refs/heads/server_main/backend_url.json
 ```
 
 ## API Reference
@@ -204,3 +204,7 @@ MUTON/
 - request examples: `wiki/Examples.md`
 - evaluation pipeline: `docs/EVALUATION.md`
 - Android client repository: [MUTON-Android](https://github.com/Ai-pre/MUTON-Android)
+
+## License
+
+This repository is currently shared for academic review and open-source release preparation. Add a formal license file before external reuse, redistribution, or commercial use.
