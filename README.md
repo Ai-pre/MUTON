@@ -1,6 +1,6 @@
 # MUTON
 
-MUTON is a real-time multimodal dialogue assistance system for hearing-impaired users, especially users who rely on oral communication rather than sign language. The project extends ordinary speech-to-text by combining speech, facial expression, and dialogue context to provide subtitles and short context-aware summaries.
+MUTON is a real-time omnimodal dialogue assistance system for hearing-impaired users, especially users who rely on oral communication rather than sign language. The project extends ordinary speech-to-text by combining speech, facial expression, and dialogue context to provide subtitles and short context-aware summaries.
 
 ## Contents
 
@@ -14,6 +14,7 @@ MUTON is a real-time multimodal dialogue assistance system for hearing-impaired 
 - [Running The Server](#running-the-server)
 - [API Reference](#api-reference)
 - [Evaluation](#evaluation)
+- [Limitations & Roadmap](#limitations--roadmap)
 - [Android Integration](#android-integration)
 - [Repository Structure](#repository-structure)
 - [Wiki & Documentation](#wiki--documentation)
@@ -76,11 +77,14 @@ MUTON uses two dataset directions:
 - Korean multimodal samples built from conversation videos, aligned face crops, audio utterances, transcripts, and summary targets.
 - MELD-based auxiliary samples reconstructed through utterance matching, Korean translation, representative frame/audio extraction, and pseudo-summary generation.
 
+For the MELD path, `Qwen/Qwen3.5-9B` was used only as a pseudo-label teacher. It generated Korean target summaries from the translated transcript and a representative face frame. The extracted audio was not passed to this teacher; it was added later as an input when training the `Qwen2.5-Omni-7B` student model. The resulting official-split exports contain 5,353 training samples and 636 development samples.
+
 Dataset-related scripts:
 
 ```text
 scripts/build_rich_ko_dataset.py
 scripts/build_rich_meld_dataset.py
+scripts/generate_meld_pseudo_summaries.py
 scripts/export_qwen_omni_ko_dataset.py
 scripts/export_qwen_omni_meld_dataset.py
 src/qwen_omni_dataset.py
@@ -100,7 +104,7 @@ scripts/train_qwen_omni_lora.py
 scripts/train_qwen_omni_lora_two_stage.py
 ```
 
-The recommended Graduation Project 2 path is Qwen2.5-Omni LoRA adaptation. The legacy fusion models remain useful for explaining the project transition from direct encoder fusion to pretrained multimodal generation.
+The recommended Graduation Project 2 path is two-stage Qwen2.5-Omni LoRA adaptation: Stage A uses the MELD pseudo-summary dataset, and Stage B adapts the resulting model to the directly constructed Korean dataset. Qwen3.5-9B is a data-generation teacher, not the runtime summary model. The legacy fusion models remain useful for explaining the project transition from direct encoder fusion to pretrained omnimodal generation.
 
 ## Running The Server
 
@@ -160,6 +164,12 @@ The project is evaluated from both model and service perspectives:
 - Comparison baseline: P-project fusion Transformer outputs versus the Qwen2.5-Omni based Graduation Project 2 pipeline.
 
 Current Graduation Project 2 evaluation results are summarized in [`docs/EVALUATION_RESULTS.md`](docs/EVALUATION_RESULTS.md). The evaluation includes Qwen2.5-Omni base vs LoRA comparison, multimodal input ablation, human-style semantic scoring, qualitative examples, and runtime STT latency.
+
+The 30-sample summary benchmark is a development-set comparison, not an independent held-out test. Its references are Qwen3.5-9B pseudo-labels, and the selected MELD development samples were also used for Stage A validation. The results therefore support relative base-vs-LoRA and output-style comparisons, but should not be interpreted as unbiased real-user performance.
+
+## Limitations & Roadmap
+
+The current service does not yet separate utterances by speaker when three or more people participate in a conversation. Planned work focuses on speaker-diarization-based utterance separation, STT and utterance-segmentation tuning, end-to-end latency reduction, and evaluation with hearing-impaired users rather than model metrics alone.
 
 ## Android Integration
 

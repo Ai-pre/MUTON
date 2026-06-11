@@ -32,8 +32,17 @@ MELD is not used as raw foreign-language data. It is reconstructed before use:
 1. Match MELD CSV rows with video clips.
 2. Translate utterance text into Korean.
 3. Extract representative frames and utterance audio.
-4. Use translated text and emotion metadata to create pseudo-summary targets.
+4. Use `Qwen/Qwen3.5-9B` to create pseudo-summary targets from the translated transcript and representative face frame.
 5. Export the result into multimodal samples that match the Qwen workflow.
+
+The pseudo-label teacher and the final service model have different roles. Qwen3.5-9B was used only to generate target text. Its pseudo-summary input did not include audio. The final `Qwen2.5-Omni-7B` training sample contains the face image, utterance audio, Korean transcript, and generated target, so audio is available to the student model even though it was not observed by the teacher.
+
+The exported MELD data keeps the official train/development split:
+
+- training: 5,353 samples
+- development: 636 samples
+
+Media hash checks found no identical image or audio files across these exports. MELD dialogue and utterance IDs restart between split files, so equal-looking IDs alone do not indicate sample overlap.
 
 ## P-project Format
 
@@ -50,6 +59,7 @@ Related scripts:
 ```text
 scripts/build_rich_ko_dataset.py
 scripts/build_rich_meld_dataset.py
+scripts/generate_meld_pseudo_summaries.py
 scripts/export_qwen_omni_ko_dataset.py
 scripts/export_qwen_omni_meld_dataset.py
 src/qwen_omni_dataset.py

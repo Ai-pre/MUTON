@@ -98,6 +98,12 @@ The script writes `summary_results.csv`, `summary_human_eval_template.csv`, `res
 
 The current Qwen2.5-Omni evaluation compares the base model with the `ko_stage` LoRA adapter on 30 samples. ROUGE-L is used only as an auxiliary relative metric because the task is open-ended Korean emotion and situation summarization.
 
+### Evaluation Scope
+
+The 30 summary samples were selected from the MELD development export. This development split was also used for Stage A validation, so the benchmark is not an independent held-out test set. The adapter was not trained on these samples, and media hash checks found no train/development image or audio duplicates, but validation-set reuse can still make model-selection results optimistic.
+
+The reference summaries are Qwen3.5-9B pseudo-labels generated from translated text and a representative face frame. Audio was included in Qwen2.5-Omni training and evaluation inputs, but not in pseudo-label generation. For this reason, the modality ablation mainly demonstrates relative behavior and output-style adaptation; it does not independently prove audio-grounded emotion understanding.
+
 | Model | Input | ROUGE-L F1 | Latency |
 |---|---:|---:|---:|
 | Qwen2.5-Omni Base | Text + Face + Audio | 0.0265 | 3.3456s |
@@ -111,7 +117,7 @@ Human-style semantic scoring was also used to evaluate emotion reflection, inten
 | Qwen2.5-Omni Base | 2.77 | 2.90 | 2.17 | 2.90 | 10.73 / 20 |
 | Qwen2.5-Omni + LoRA | 4.00 | 4.23 | 4.33 | 4.03 | 16.60 / 20 |
 
-The LoRA-adapted model was selected as the better output in 29 of 30 paired comparisons. This suggests that adaptation mainly improved the output style: shorter, less chatbot-like, and more suitable for MUTON's captioning use case.
+The LoRA-adapted model was selected as the better output in 29 of 30 paired comparisons. This suggests that adaptation mainly improved the output style: shorter, less chatbot-like, and more suitable for MUTON's captioning use case. A future evaluation should use a separate test split with independently written or human-reviewed references and actual hearing-impaired user feedback.
 
 ## User-Centered Evaluation
 

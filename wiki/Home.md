@@ -1,6 +1,6 @@
 # MUTON Wiki
 
-MUTON is a real-time multimodal dialogue assistance system for hearing-impaired users, especially users who rely on oral communication and context reading in daily conversation. The system combines speech, facial cues, and transcript context to provide subtitles and short Korean summaries that include conversational tone and intent.
+MUTON is a real-time omnimodal dialogue assistance system for hearing-impaired users, especially users who rely on oral communication and context reading in daily conversation. The system combines speech, facial cues, and transcript context to provide subtitles and short Korean summaries that include conversational tone and intent.
 
 ## Recommended Runtime
 
@@ -29,6 +29,13 @@ Graduation Project 2 keeps the same service goal but changes the modeling strate
 - multimodal Korean summary generation through Qwen2.5-Omni
 - server-side conversation record summary to avoid exposing API keys in the Android app
 - Cloudflare Tunnel based mobile access
+
+## Current Limitations
+
+- speaker diarization is not yet implemented for conversations with three or more participants
+- STT and utterance segmentation still require tuning for noisy environments
+- end-to-end latency requires further optimization
+- target-user evaluation with hearing-impaired participants remains future work
 
 ## Important Entry Points
 
