@@ -2,6 +2,8 @@
 
 MUTON is a real-time omnimodal dialogue assistance system for hearing-impaired users, especially users who rely on oral communication and context reading in daily conversation. The system combines speech, facial cues, and transcript context to provide subtitles and short Korean summaries that include conversational tone and intent.
 
+<img src="../docs/assets/muton_poster.jpg" alt="MUTON project poster" width="850" />
+
 ## Recommended Runtime
 
 The current Graduation Project 2 runtime is:
@@ -29,6 +31,15 @@ Graduation Project 2 keeps the same service goal but changes the modeling strate
 - multimodal Korean summary generation through Qwen2.5-Omni
 - server-side conversation record summary to avoid exposing API keys in the Android app
 - Cloudflare Tunnel based mobile access
+
+## Final Project Results
+
+- LoRA adaptation improves the output style from long chatbot-like responses to shorter Korean observational captions.
+- The best automatic summary score is `ROUGE-L F1 = 0.1616` for the Text + Face LoRA setting.
+- The full Text + Face + Audio LoRA setting reaches `ROUGE-L F1 = 0.1405`.
+- LLM-as-judge semantic score improves from `10.73 / 20` to `16.60 / 20`.
+- STT server processing averages `1.4071s` over 300 samples.
+- Mobile end-to-end latency averages `5.6s` over 10 live Android utterances.
 
 ## Current Limitations
 

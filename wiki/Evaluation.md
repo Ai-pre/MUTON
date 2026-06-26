@@ -104,13 +104,15 @@ The 30 summary samples were selected from the MELD development export. This deve
 
 The reference summaries are Qwen3.5-9B pseudo-labels generated from translated text and a representative face frame. Audio was included in Qwen2.5-Omni training and evaluation inputs, but not in pseudo-label generation. For this reason, the modality ablation mainly demonstrates relative behavior and output-style adaptation; it does not independently prove audio-grounded emotion understanding.
 
+This audio-grounding limitation is important when interpreting the ablation result. The Text + Face condition can score higher than the full Text + Face + Audio condition because the reference text itself was not written from audio-aware labels. A future evaluation should use test samples whose references are written or reviewed while listening to the audio.
+
 | Model | Input | ROUGE-L F1 | Latency |
 |---|---:|---:|---:|
 | Qwen2.5-Omni Base | Text + Face + Audio | 0.0265 | 3.3456s |
 | Qwen2.5-Omni + LoRA | Text + Face + Audio | 0.1405 | 3.2301s |
 | Qwen2.5-Omni + LoRA | Text + Face | 0.1616 | 3.2464s |
 
-Human-style semantic scoring was also used to evaluate emotion reflection, intent reflection, fluency, and faithfulness.
+LLM-as-judge semantic scoring was also used to evaluate emotion reflection, intent reflection, fluency, and faithfulness.
 
 | Model | Emotion | Intent | Fluency | Faithfulness | Total |
 |---|---:|---:|---:|---:|---:|
@@ -118,6 +120,15 @@ Human-style semantic scoring was also used to evaluate emotion reflection, inten
 | Qwen2.5-Omni + LoRA | 4.00 | 4.23 | 4.33 | 4.03 | 16.60 / 20 |
 
 The LoRA-adapted model was selected as the better output in 29 of 30 paired comparisons. This suggests that adaptation mainly improved the output style: shorter, less chatbot-like, and more suitable for MUTON's captioning use case. A future evaluation should use a separate test split with independently written or human-reviewed references and actual hearing-impaired user feedback.
+
+## Runtime Latency Summary
+
+| Evaluation Item | Samples | Average Latency |
+|---|---:|---:|
+| STT server processing | 300 | 1.4071s |
+| Mobile end-to-end | 10 | 5.6s |
+
+The mobile end-to-end result measures live Android usage from utterance completion to summary display. It includes VAD-based utterance finalization, network transfer, STT, snapshot commit, Qwen generation, response transfer, and UI update. This confirms that the pipeline works as a mobile demo, while also showing that latency optimization remains a major next step.
 
 ## User-Centered Evaluation
 

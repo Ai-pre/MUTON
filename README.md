@@ -1,12 +1,18 @@
 # MUTON
 
-MUTON is a real-time omnimodal dialogue assistance system for hearing-impaired users, especially users who rely on oral communication rather than sign language. The project extends ordinary speech-to-text by combining speech, facial expression, and dialogue context to provide subtitles and short context-aware summaries.
+MUTON is a real-time omnimodal conversation assistant for people with hearing loss. It extends ordinary speech-to-text by combining speech, facial expression, and dialogue context so that users can read not only what was said, but also the speaker's tone, attitude, and situation.
+
+<p align="center">
+  <img src="docs/assets/muton_poster.jpg" alt="MUTON project poster" width="850" />
+</p>
 
 ## Contents
 
 - [Overview](#overview)
+- [Project At A Glance](#project-at-a-glance)
 - [Motivation](#motivation)
 - [System Pipeline](#system-pipeline)
+- [Key Results](#key-results)
 - [Installation](#installation)
 - [Prepare Runtime Assets](#prepare-runtime-assets)
 - [Prepare Datasets](#prepare-datasets)
@@ -26,6 +32,18 @@ The current recommended runtime uses `OpenAI whisper-1` for Korean speech-to-tex
 
 The repository also keeps the earlier P-project pipeline, including face/audio/text encoders and custom fusion models. Those files are maintained as experiment history and comparison baselines, while the current mobile demo path is based on the Qwen server.
 
+## Project At A Glance
+
+| Area | Current Implementation |
+|---|---|
+| Target users | Hearing-impaired users who rely on oral communication and need context beyond plain subtitles |
+| Client | Android app for camera/audio capture, subtitles, visual emotion cues, and conversation record screens |
+| Backend | FastAPI server exposed through Cloudflare Tunnel |
+| STT | OpenAI `whisper-1` |
+| Summary model | `Qwen2.5-Omni-7B` with `ko_stage` LoRA adapter |
+| Training strategy | Two-stage LoRA adaptation: MELD pseudo-summary stage followed by Korean dataset adaptation |
+| Android repository | [Ai-pre/MUTON-Android](https://github.com/Ai-pre/MUTON-Android) |
+
 ## Motivation
 
 Most captioning services answer only one question: what was said. Real conversation also depends on how it was said, including facial expression, hesitation, tone, emphasis, and the surrounding dialogue flow. MUTON was built to reduce this gap by turning multimodal signals into a more useful communication aid for real-time mobile situations.
@@ -37,6 +55,18 @@ In P-project, the main goal was to design a multimodal fusion model directly. In
 The current pipeline separates low-latency transcription from multimodal summary generation. Audio chunks are buffered and segmented into utterances, video frames are processed for face/emotion context, and committed utterance snapshots are passed to the Qwen-based summary path.
 
 <img width="1237" height="395" alt="MUTON Graduation Project 2 pipeline" src="https://github.com/user-attachments/assets/9609c160-2fd2-4331-98dd-60bdd73efc45" />
+
+## Key Results
+
+| Evaluation | Result |
+|---|---:|
+| Best automatic summary score | `Qwen2.5-Omni + LoRA`, Text + Face, ROUGE-L F1 `0.1616` |
+| Full input summary score | `Qwen2.5-Omni + LoRA`, Text + Face + Audio, ROUGE-L F1 `0.1405` |
+| LLM-as-judge semantic score | Base `10.73 / 20`, LoRA `16.60 / 20` |
+| STT server latency | 300 samples, average `1.4071s` |
+| Mobile end-to-end latency | 10 live Android utterances, average `5.6s` |
+
+ROUGE-L is treated only as a relative automatic metric because MUTON generates short open-ended Korean emotion and situation summaries. The current reference summaries are pseudo-labels, so the strongest evidence is the relative Base vs LoRA comparison and qualitative output change rather than an absolute benchmark score.
 
 ## Installation
 
