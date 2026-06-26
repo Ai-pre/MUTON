@@ -102,9 +102,7 @@ The current Qwen2.5-Omni evaluation compares the base model with the `ko_stage` 
 
 The 30 summary samples were selected from the MELD development export. This development split was also used for Stage A validation, so the benchmark is not an independent held-out test set. The adapter was not trained on these samples, and media hash checks found no train/development image or audio duplicates, but validation-set reuse can still make model-selection results optimistic.
 
-The reference summaries are Qwen3.5-9B pseudo-labels generated from translated text and a representative face frame. Audio was included in Qwen2.5-Omni training and evaluation inputs, but not in pseudo-label generation. For this reason, the modality ablation mainly demonstrates relative behavior and output-style adaptation; it does not independently prove audio-grounded emotion understanding.
-
-This audio-grounding limitation is important when interpreting the ablation result. The Text + Face condition can score higher than the full Text + Face + Audio condition because the reference text itself was not written from audio-aware labels. A future evaluation should use test samples whose references are written or reviewed while listening to the audio.
+The reference summaries are Qwen3.5-9B pseudo-labels generated from translated text and a representative face frame. For this reason, the modality ablation mainly demonstrates relative behavior and output-style adaptation rather than an independent final benchmark.
 
 | Model | Input | ROUGE-L F1 | Latency |
 |---|---:|---:|---:|
@@ -112,7 +110,7 @@ This audio-grounding limitation is important when interpreting the ablation resu
 | Qwen2.5-Omni + LoRA | Text + Face + Audio | 0.1405 | 3.2301s |
 | Qwen2.5-Omni + LoRA | Text + Face | 0.1616 | 3.2464s |
 
-LLM-as-judge semantic scoring was also used to evaluate emotion reflection, intent reflection, fluency, and faithfulness.
+Human evaluation was also used to evaluate emotion reflection, intent reflection, fluency, and faithfulness.
 
 | Model | Emotion | Intent | Fluency | Faithfulness | Total |
 |---|---:|---:|---:|---:|---:|

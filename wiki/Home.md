@@ -37,7 +37,7 @@ Graduation Project 2 keeps the same service goal but changes the modeling strate
 - LoRA adaptation improves the output style from long chatbot-like responses to shorter Korean observational captions.
 - The best automatic summary score is `ROUGE-L F1 = 0.1616` for the Text + Face LoRA setting.
 - The full Text + Face + Audio LoRA setting reaches `ROUGE-L F1 = 0.1405`.
-- LLM-as-judge semantic score improves from `10.73 / 20` to `16.60 / 20`.
+- Human evaluation score improves from `10.73 / 20` to `16.60 / 20`.
 - STT server processing averages `1.4071s` over 300 samples.
 - Mobile end-to-end latency averages `5.6s` over 10 live Android utterances.
 

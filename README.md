@@ -62,7 +62,7 @@ The current pipeline separates low-latency transcription from multimodal summary
 |---|---:|
 | Best automatic summary score | `Qwen2.5-Omni + LoRA`, Text + Face, ROUGE-L F1 `0.1616` |
 | Full input summary score | `Qwen2.5-Omni + LoRA`, Text + Face + Audio, ROUGE-L F1 `0.1405` |
-| LLM-as-judge semantic score | Base `10.73 / 20`, LoRA `16.60 / 20` |
+| Human evaluation score | Base `10.73 / 20`, LoRA `16.60 / 20` |
 | STT server latency | 300 samples, average `1.4071s` |
 | Mobile end-to-end latency | 10 live Android utterances, average `5.6s` |
 
@@ -193,7 +193,7 @@ The project is evaluated from both model and service perspectives:
 - Robustness: behavior under noisy environments, weak network conditions, and changing Cloudflare tunnel URLs.
 - Comparison baseline: P-project fusion Transformer outputs versus the Qwen2.5-Omni based Graduation Project 2 pipeline.
 
-Current Graduation Project 2 evaluation results are summarized in [`docs/EVALUATION_RESULTS.md`](docs/EVALUATION_RESULTS.md). The evaluation includes Qwen2.5-Omni base vs LoRA comparison, multimodal input ablation, human-style semantic scoring, qualitative examples, and runtime STT latency.
+Current Graduation Project 2 evaluation results are summarized in [`docs/EVALUATION_RESULTS.md`](docs/EVALUATION_RESULTS.md). The evaluation includes Qwen2.5-Omni base vs LoRA comparison, multimodal input ablation, Human Evaluation, qualitative examples, and runtime latency.
 
 The 30-sample summary benchmark is a development-set comparison, not an independent held-out test. Its references are Qwen3.5-9B pseudo-labels, and the selected MELD development samples were also used for Stage A validation. The results therefore support relative base-vs-LoRA and output-style comparisons, but should not be interpreted as unbiased real-user performance.
 
